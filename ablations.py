@@ -367,7 +367,7 @@ class MetaworldSparseCLIP(Env):
 
 
 class MetaworldSparseMulti(Env):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1):
+    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1, approach="sum"):
         super(MetaworldSparseMulti,self)
         self.num_demo = num_demo
         door_open_goal_hidden_cls = ALL_V2_ENVIRONMENTS_GOAL_HIDDEN[env_id]
@@ -382,6 +382,8 @@ class MetaworldSparseMulti(Env):
         self.past_observations = []
         self.window_length = 16
         self.net = S3D('s3d_dict.npy', 512)
+
+        self.approach = approach
 
         # Load the model weights
         # self.net.load_state_dict(th.load('s3d_howto100m.pth'))
@@ -460,12 +462,43 @@ class MetaworldSparseMulti(Env):
             video_output = self.net(video.float())
 
             video_embedding = video_output['video_embedding']
-            reward = 0.0
+
+            agg_reward_fn = self.choose_multi_reward()
+            reward = agg_reward_fn(video_embedding)
+            
+            return obs, reward, done, info
+            # reward = 0.0
+            # for i in range(self.num_demo):
+            #     similarity_matrix = th.matmul(self.targets[i], video_embedding.t())
+            #     reward += similarity_matrix.detach().numpy()[0][0]
+            # return obs, reward, done, info
+        return obs, 0.0, done, info
+    
+    def choose_multi_reward(self):
+        def sum_rewards(video_embedding):
+                """Sum the similarities from all demonstrations. Original approach used in the paper."""
+                reward = 0.0
+                for i in range(self.num_demo):
+                    similarity_matrix = th.matmul(self.targets[i], video_embedding.t())
+                    reward += similarity_matrix.detach().numpy()[0][0]
+                return reward
+        
+        def max_rewards(video_embedding):
+            """Take the maximum similarity from all demonstrations."""
+            max_reward = -float('inf')
             for i in range(self.num_demo):
                 similarity_matrix = th.matmul(self.targets[i], video_embedding.t())
-                reward += similarity_matrix.detach().numpy()[0][0]
-            return obs, reward, done, info
-        return obs, 0.0, done, info
+                reward = similarity_matrix.detach().numpy()[0][0]
+                if reward > max_reward:
+                    max_reward = reward
+            return max_reward
+        
+        if self.approach == "sum":
+            return sum_rewards
+        elif self.approach == "max":
+            return max_rewards
+        else:
+            raise NotImplementedError(f"Aggregation approach '{self.approach}' not implemented. Use 'sum' or 'max'.")
 
     def reset(self):
         self.past_observations = []
