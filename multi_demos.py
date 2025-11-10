@@ -180,7 +180,7 @@ class MetaworldSparseMultiBase(Env):
         return np.concatenate([self.env.reset(), np.array([0.0])])
 
 
-class MetaWorldSparseMultiOriginalSum(MetaworldSparseMultiBase):
+class MetaworldSparseMultiOriginalSum(MetaworldSparseMultiBase):
     def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1):
         super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
     
@@ -192,7 +192,7 @@ class MetaWorldSparseMultiOriginalSum(MetaworldSparseMultiBase):
             reward += similarity_matrix.detach().numpy()[0][0]
         return reward
 
-class MetaWorldSparseMultiMax(MetaworldSparseMultiBase):
+class MetaworldSparseMultiMax(MetaworldSparseMultiBase):
     def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1):
         super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
     
@@ -206,7 +206,7 @@ class MetaWorldSparseMultiMax(MetaworldSparseMultiBase):
                 max_reward = reward
         return max_reward
 
-class MetaWorldSparseMultiMOM(MetaworldSparseMultiBase):
+class MetaworldSparseMultiMOM(MetaworldSparseMultiBase):
     def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1):
         super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
         self.mom_embedding = self.find_mom_embedding()
@@ -223,6 +223,7 @@ class MetaWorldSparseMultiMOM(MetaworldSparseMultiBase):
         mom_embedding = np.median(np.stack(group_means), axis=0) # compute element-wise median across group means
                                                                  # NOTE: should I use geomtric median? Will take longer (iteration needed) but is more robust.
         
+        mom_embedding = th.tensor(mom_embedding) # NOTE: needed? Check later.
         return mom_embedding
 
     def compute_reward(self, video_embedding):
@@ -230,3 +231,51 @@ class MetaWorldSparseMultiMOM(MetaworldSparseMultiBase):
         similarity_matrix = th.matmul(self.mom_embedding, video_embedding.t())
         reward = similarity_matrix.detach().numpy()[0][0]
         return reward
+
+class MetaworldSparseMultiSequential(MetaworldSparseMultiBase):
+    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1, episodes_per_demo=1000):
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+        self.episodes_per_demo = episodes_per_demo
+        self.current_demo_index = 0
+        self.episodes_run_for_current_demo = 0
+    
+    def compute_reward(self, video_embedding):
+        """Compute reward using sequential approach."""
+        similarity_matrix = th.matmul(self.targets[self.current_demo_index], video_embedding.t())
+        reward = similarity_matrix.detach().numpy()[0][0]
+        return reward
+    
+    def step(self, action):
+        """Take a step in environment, collect frames, and compute reward at the end.
+        Note: reward computation is to be implemented in subclasses.
+        Note: if compute_reward should take more than just video_embedding, override step() in subclass accordingly."""
+        obs, _, done, info = self.env.step(action)
+        self.past_observations.append(self.env.render())
+
+        if self.episodes_run_for_current_demo >= self.episodes_per_demo:
+            self.current_demo_index = min(self.current_demo_index + 1, self.num_demo - 1) # move to next demo, but don't exceed bounds. NOTE: last demo will be used for remaining episodes if total episodes exceed num_demo * episodes_per_demo
+            self.episodes_run_for_current_demo = 0
+
+        self.episodes_run_for_current_demo += 1
+        self.counter += 1
+
+        t = self.counter/128
+
+        if self.time:
+            obs = np.concatenate([obs, np.array([t])])
+        if done:
+            frames = self.preprocess_metaworld(self.past_observations)
+            
+        
+        
+            video = th.from_numpy(frames)
+            # print("video.shape", video.shape)
+            # print(frames.shape)
+            video_output = self.net(video.float())
+
+            video_embedding = video_output['video_embedding']
+
+            reward = self.compute_reward(video_embedding)
+
+            return obs, reward, done, info
+        return obs, 0.0, done, info
