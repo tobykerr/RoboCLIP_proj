@@ -44,6 +44,8 @@ from matplotlib import animation
 import matplotlib.pyplot as plt
 from transformers import CLIPProcessor, CLIPModel
 
+from metaworld_envs import MetaworldDense
+
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument('--algo', type=str, default='ppo')
@@ -85,7 +87,7 @@ class MetaworldSparseMultiBase(Env):
         self.targets = []
         if video_path:
             for i in range(num_demo):
-                path = video_path+f"/button-press-v2_{i}.gif"
+                path = video_path+f"/{i+1}.gif" # assume gifs placed in folder specified by video_demo and are named 1.gif, 2.gif, ...
                 frames = readGif(path)
                 print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", len(frames))
                 print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", frames[0].shape)
@@ -279,3 +281,62 @@ class MetaworldSparseMultiSequential(MetaworldSparseMultiBase):
 
             return obs, reward, done, info
         return obs, 0.0, done, info
+    
+
+def make_env(env_type, env_id, rank, seed=0):
+    """
+    Utility function for multiprocessed env.
+
+    :param env_id: (str) the environment ID
+    :param num_env: (int) the number of environments you wish to have in subprocesses
+    :param seed: (int) the inital seed for RNG
+    :param rank: (int) index of the subprocess
+    """
+    def _init():
+        # env = KitchenMicrowaveHingeSlideV0()
+        if env_type == "sum":
+            env = MetaworldSparseMultiOriginalSum(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+        elif env_type == "max":
+            env = MetaworldSparseMultiMax(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+        elif env_type == "mom":
+            env = MetaworldSparseMultiMOM(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+        elif env_type == "sequential":
+            env = MetaworldSparseMultiSequential(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True, num_demo=4, episodes_per_demo=250) # FOR VIDEO REWARD, set human=False for metaworld demo
+        # elif env_type == "sparse_original":
+        #     env = KitchenEnvSparseOriginalReward(time=True)
+        else:
+            env = MetaworldDense(env_id=env_id, time=True, rank=rank)
+        env = Monitor(env, os.path.join(log_dir, str(rank)))
+        # env.seed(seed + rank)
+        return env
+    # set_global_seeds(seed)
+    return _init
+
+def main():
+    global args
+    global log_dir
+    args = get_args()
+    env_id = "drawer-open-v2-goal-hidden"
+    log_dir = f"metaworld/{args.env_id}_{args.env_type}{args.dir_add}"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    envs = SubprocVecEnv([make_env(args.env_type, args.env_id, i) for i in range(args.n_envs)])
+
+    if not args.pretrained:
+        model = PPO("MlpPolicy", envs, verbose=1, tensorboard_log=log_dir, n_steps=args.n_steps, batch_size=args.n_steps*args.n_envs, n_epochs=1, ent_coef=0.5)
+    else:
+        model = PPO.load(args.pretrained, env=envs, tensorboard_log=log_dir)
+
+    eval_env = SubprocVecEnv([make_env("dense_original", args.env_id, i) for i in range(10, 10+args.n_envs)])#KitchenEnvDenseOriginalReward(time=True)
+    # Use deterministic actions for evaluation
+    eval_callback = EvalCallback(eval_env, best_model_save_path=log_dir,
+                                 log_path=log_dir, eval_freq=500,
+                                 deterministic=True, render=False)
+
+    model.learn(total_timesteps=int(args.total_time_steps), callback=eval_callback)
+    model.save(f"{log_dir}/trained")
+
+
+
+if __name__ == '__main__':
+    main()
