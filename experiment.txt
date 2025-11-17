@@ -1,5 +1,9 @@
 #!/bin/bash -login
 
-#SBATCH -t 1 # sets max time in mins
+#SBATCH -t 1
 
-python metaworld_multidemos.py --env-type sum --env-id drawer-open-v2-goal-hidden --dir-add initial_test
+conda activate roboclip
+
+cd ~/GitRepos/RoboCLIP_proj/
+
+python metaworld_multidemos.py --env-type sum --env-id drawer-open-v2-goal-hidden --dir-add ~/scratch/initial_test
