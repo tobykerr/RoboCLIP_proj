@@ -218,8 +218,8 @@ def make_env(env_type, env_id, rank, seed=0):
     def _init():
         # env = KitchenMicrowaveHingeSlideV0()
         if env_type == "sparse_learnt":
-            # env = MetaworldSparse(env_id=env_id, text_string="robot closing green drawer", time=True, rank=rank)
-            env = MetaworldSparse(env_id=env_id, video_path="./gifs/human_opening_door.gif", time=True, rank=rank, human=True)
+            # env = MetaworldSparse(env_id=env_id, text_string="robot closing green drawer", time=True, rank=rank)             # FOR TEXTUAL REWARD
+            env = MetaworldSparse(env_id=env_id, video_path="./gifs/human_opening_door.gif", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
         
         elif env_type == "sparse_original":
             env = KitchenEnvSparseOriginalReward(time=True)
