@@ -1,0 +1,5 @@
+#!/bin/bash -login
+
+#SBATCH -t 1 # sets max time in mins
+
+python metaworld_multidemos.py --env-type sum --env-id drawer-open-v2-goal-hidden --dir-add initial_test
