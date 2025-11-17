@@ -1,6 +1,12 @@
 #!/bin/bash -login
-#SBATCH -p serial
-#SBATCH -t 1
+#SBATCH -p gpuA             # use A100 80GB GPU
+#SBATCH -G 1                # use 1 GPU
+#SBATCH -t 1-0              # time limit of 1 day
+
+#SBATCH -n 12               # use 12 (max allowed) CPU host cores (default is 1)
+
+module purge
+module load libs/cuda       # apparently CUDA libraries are needed?
 
 conda activate roboclip
 
