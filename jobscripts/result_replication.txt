@@ -17,4 +17,4 @@ export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 export MUJOCO_GL=egl
 
-python metaworld_envs.py --env-type sparse_learnt --env-id drawer-open-v2-goal-hidden --dir-add result_replication0
+python metaworld_envs.py --env-type sparse_learnt --env-id door-open-v2-goal-hidden --total-time-steps 1000000 --dir-add RR_door_open_human
