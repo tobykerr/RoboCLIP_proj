@@ -1,0 +1,12 @@
+#!/bin/bash -login
+#SBATCH -p serial             # 1-core
+#SBATCH -t 5              # 5 mins
+
+conda activate roboclip
+export LD_LIBRARY_PATH=$HOME/.mujoco/mujoco210/bin:$LD_LIBRARY_PATH
+export MUJOCO_PY_MJKEY_PATH=$HOME/.mujoco/mjkey.txt
+export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
+export MUJOCO_GL=egl
+
+python tools/run.py   --model metaworld/door-open-v2-goal-hidden_sparse_learntresult_replication0/trained.zip   --env-id door-open-v2-goal-hidden   --outfile runs/rollout.gif   --max-steps 10000
