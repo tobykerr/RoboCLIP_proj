@@ -41,6 +41,9 @@ from kitchen_env_wrappers import readGif
 from matplotlib import animation
 import matplotlib.pyplot as plt
 
+from rewards.dvd_reward import DVDReward, DVDConfig
+
+
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument('--algo', type=str, default='ppo')
@@ -52,6 +55,14 @@ def get_args():
     parser.add_argument('--n-envs', type=int, default=8)
     parser.add_argument('--n-steps', type=int, default=128)
     parser.add_argument('--pretrained', type=str, default=None)
+    parser.add_argument("--demo-gif", type=str, default=None)
+    parser.add_argument("--dvd-repo-root", type=str, default="third_party/dvd")
+    parser.add_argument("--dvd-sim-ckpt", type=str, default="third_party/dvd/pretrained/dvd_human_tasks_6_robot_tasks_3.pth.tar")
+    parser.add_argument("--dvd-enc-ckpt", type=str, default="third_party/dvd/pretrained/video_encoder/model_best.pth.tar")
+    parser.add_argument("--dvd-clip-len", type=int, default=20)
+    parser.add_argument("--dvd-reward-mode", type=str, default="logit_diff",
+                        choices=["logit_diff", "logprob_same"])
+    parser.add_argument("--dvd-reward-scale", type=float, default=1.0)
 
 
     args = parser.parse_args()
@@ -161,6 +172,73 @@ class MetaworldSparse(Env):
             return self.env.reset()
         return np.concatenate([self.env.reset(), np.array([0.0])])
 
+class MetaworldSparseDVD(Env):
+    def __init__(self, env_id, args, time=False, rank=0):
+        super(MetaworldSparseDVD, self).__init__()
+
+        env_cls = ALL_V2_ENVIRONMENTS_GOAL_HIDDEN[env_id]
+        env = env_cls(seed=rank)
+        self.env = TimeLimit(env, max_episode_steps=128)
+
+        self.time = time
+        if not self.time:
+            self.observation_space = self.env.observation_space
+        else:
+            self.observation_space = Box(
+                low=-8.0, high=8.0,
+                shape=(self.env.observation_space.shape[0] + 1,),
+                dtype=np.float32
+            )
+        self.action_space = self.env.action_space
+
+        self.past_observations = []
+        self.counter = 0
+
+        assert args.demo_gif is not None, "--demo-gif must be provided for sparse_dvd"
+
+        self.dvd = DVDReward(
+            dvd_repo_root=args.dvd_repo_root,
+            sim_discriminator_ckpt=args.dvd_sim_ckpt,
+            video_encoder_ckpt=args.dvd_enc_ckpt,
+            demo_gif_path=args.demo_gif,
+            cfg=DVDConfig(
+                clip_len=args.dvd_clip_len,
+                resize_h=84,
+                resize_w=84,
+                device="cuda",
+                reward_mode=args.dvd_reward_mode,
+                reward_scale=args.dvd_reward_scale,
+            ),
+        )
+
+    def render(self):
+        return self.env.render()
+
+    def step(self, action):
+        obs, _, done, info = self.env.step(action)
+
+        # Record frames (RGB uint8)
+        self.past_observations.append(self.env.render())
+
+        self.counter += 1
+        t = self.counter / 128.0
+        if self.time:
+            obs = np.concatenate([obs, np.array([t])])
+
+        if done:
+            reward = float(self.dvd.terminal_reward(self.past_observations))
+            info = dict(info)
+            info["dvd_terminal_reward"] = reward
+            return obs, reward, done, info
+
+        return obs, 0.0, done, info
+
+    def reset(self):
+        self.past_observations = []
+        self.counter = 0
+        if not self.time:
+            return self.env.reset()
+        return np.concatenate([self.env.reset(), np.array([0.0])])
 
 class MetaworldDense(Env):
     def __init__(self, env_id, time=False, rank=0):
@@ -219,8 +297,9 @@ def make_env(env_type, env_id, rank, seed=0):
         # env = KitchenMicrowaveHingeSlideV0()
         if env_type == "sparse_learnt":
             # env = MetaworldSparse(env_id=env_id, text_string="robot closing green drawer", time=True, rank=rank)             # FOR TEXTUAL REWARD
-            env = MetaworldSparse(env_id=env_id, video_path="./gifs/human_opening_door.gif", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
-        
+            env = MetaworldSparse(env_id=env_id, video_path=args.demo_gif, time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+        if env_type == "sparse_dvd"::
+            env = MetaworldSparseDVD(env_id=env_id, args=args, time=True, rank=rank)
         elif env_type == "sparse_original":
             env = KitchenEnvSparseOriginalReward(time=True)
         else:
@@ -237,7 +316,7 @@ def main():
     global args
     global log_dir
     args = get_args()
-    env_id = "button-press-v2-goal-hidden"
+    #env_id = "button-press-v2-goal-hidden"
     log_dir = f"metaworld/{args.env_id}_{args.env_type}{args.dir_add}"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
