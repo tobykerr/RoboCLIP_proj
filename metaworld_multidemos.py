@@ -235,11 +235,17 @@ class MetaworldSparseMultiMOM(MetaworldSparseMultiBase):
         return reward
 
 class MetaworldSparseMultiSequential(MetaworldSparseMultiBase):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1, episodes_per_demo=1000):
+    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1, episodes_per_demo=1000
+                 , reward_window=50, patience=10, reward_threshold=0.01):  # TODO: tune these hyperparameters!
         super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
-        self.episodes_per_demo = episodes_per_demo
+        # self.episodes_per_demo = episodes_per_demo
         self.current_demo_index = 0
-        self.episodes_run_for_current_demo = 0
+        # self.episodes_run_for_current_demo = 0
+        self.recent_rewards = [] # to track recent rewards for improvement
+        self.reward_window = reward_window # number of recent rewards to consider for improvement
+        self.patience = patience # number of steps to wait before swapping
+        self.reward_threshold = reward_threshold # improvement threshold
+        self.steps_since_improvement = 0
     
     def compute_reward(self, video_embedding):
         """Compute reward using sequential approach."""
@@ -254,11 +260,11 @@ class MetaworldSparseMultiSequential(MetaworldSparseMultiBase):
         obs, _, done, info = self.env.step(action)
         self.past_observations.append(self.env.render())
 
-        if self.episodes_run_for_current_demo >= self.episodes_per_demo:
-            self.current_demo_index = min(self.current_demo_index + 1, self.num_demo - 1) # move to next demo, but don't exceed bounds. NOTE: last demo will be used for remaining episodes if total episodes exceed num_demo * episodes_per_demo
-            self.episodes_run_for_current_demo = 0
+        # if self.episodes_run_for_current_demo >= self.episodes_per_demo:
+        #     self.current_demo_index = min(self.current_demo_index + 1, self.num_demo - 1) # move to next demo, but don't exceed bounds. NOTE: last demo will be used for remaining episodes if total episodes exceed num_demo * episodes_per_demo
+        #     self.episodes_run_for_current_demo = 0
 
-        self.episodes_run_for_current_demo += 1
+        # self.episodes_run_for_current_demo += 1
         self.counter += 1
 
         t = self.counter/128
@@ -267,17 +273,29 @@ class MetaworldSparseMultiSequential(MetaworldSparseMultiBase):
             obs = np.concatenate([obs, np.array([t])])
         if done:
             frames = self.preprocess_metaworld(self.past_observations)
-            
-        
-        
             video = th.from_numpy(frames)
-            # print("video.shape", video.shape)
-            # print(frames.shape)
             video_output = self.net(video.float())
-
             video_embedding = video_output['video_embedding']
-
             reward = self.compute_reward(video_embedding)
+
+            # track recent rewards to see if improvement has occurred
+            self.recent_rewards.append(reward)
+            if len(self.recent_rewards) > self.reward_window:
+                self.recent_rewards.pop(0)
+
+            if len(self.recent_rewards) == self.reward_window:
+                improvement = max(self.recent_rewards) - min(self.recent_rewards)
+                if improvement < self.reward_threshold:
+                    self.steps_since_improvement += 1
+                else:
+                    self.steps_since_improvement = 0
+
+            # swap demo if no improvement for patience steps
+            if self.steps_since_improvement >= self.patience:
+                # swap to next demo (round-robin style, we loop back to first demo after last)
+                self.current_demo_index = (self.current_demo_index + 1) % self.num_demo
+                self.steps_since_improvement = 0
+                self.recent_rewards = []
 
             return obs, reward, done, info
         return obs, 0.0, done, info

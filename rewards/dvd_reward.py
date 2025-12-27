@@ -135,12 +135,28 @@ class DVDReward:
             frames = frames + [frames[-1]] * (self.cfg.clip_len - len(frames))
         return self._frames_to_clip(frames)
 
-    def _frames_to_clip(self, frames: List[np.ndarray]) -> torch.Tensor:
-        proc = [self._preprocess_frame(f) for f in frames]  # list of (H,W,3)
-        clip = np.stack(proc, axis=0)  # [T,H,W,3]
-        clip = torch.from_numpy(clip).permute(0, 3, 1, 2).float() / 255.0  # [T,3,H,W]
-        return clip.unsqueeze(0)  # [1,T,3,H,W]
+    def _frames_to_clip(self, frames):
+        proc = [self._preprocess_frame(f) for f in frames]   # list of (H,W,3) uint8 RGB
+        clip = np.stack(proc, axis=0)                        # [T,H,W,3]
+        clip = torch.from_numpy(clip).float() / 255.0        # [T,H,W,3] in [0,1]
+        clip = clip.permute(0, 3, 1, 2)                      # [T,3,H,W]
+        clip = clip.unsqueeze(0)                             # [1,T,3,H,W]
 
-    def _preprocess_frame(self, frame: np.ndarray) -> np.ndarray:
-        f = cv2.resize(frame, (self.cfg.resize_w, self.cfg.resize_h), interpolation=cv2.INTER_AREA)
-        return f
+        # ImageNet normalization (as in transforms_video.py)
+        mean = torch.tensor([0.485, 0.456, 0.406], dtype=clip.dtype).view(1, 1, 3, 1, 1)
+        std  = torch.tensor([0.229, 0.224, 0.225], dtype=clip.dtype).view(1, 1, 3, 1, 1)
+        clip = (clip - mean) / std
+
+        return clip
+
+
+    def _preprocess_frame(self, frame):
+        # frame is RGB uint8
+        h, w = frame.shape[:2]
+        s = min(h, w)
+        y0 = (h - s) // 2
+        x0 = (w - s) // 2
+        frame = frame[y0:y0+s, x0:x0+s]  # central square crop
+        frame = cv2.resize(frame, (84, 84), interpolation=cv2.INTER_AREA)
+        return frame
+
