@@ -1,0 +1,43 @@
+Processed clip checksum: 245491
+roll_emb mean/std: 0.002257669810205698 0.0029573619831353426
+roll_emb norm: 0.08413621038198471
+logits: [[-0.56787694  0.39535064]]
+prob_same: [0.7237676]
+Processed clip checksum: 246844
+roll_emb mean/std: 0.002257684711366892 0.0029573861975222826
+roll_emb norm: 0.08413685113191605
+logits: [[-0.5678765   0.39535034]]
+prob_same: [0.7237674]
+Reward (zero): 0.9632275700569153
+Reward (thrash): 0.963226854801178
+Mean abs pixel diff first-last: 1.1171831597222222
+Checksums: 130553395 130175962 130423905
+Processed clip checksum: 241357
+roll_emb mean/std: 0.002257678657770157 0.0029573864303529263
+roll_emb norm: 0.08413676917552948
+logits: [[-0.567876    0.39534962]]
+prob_same: [0.72376716]
+Episode 00 | reward = 0.9632 | success = 0.0
+Mean abs pixel diff first-last: 2.683100043402778
+Checksums: 130553387 130524743 130198934
+Processed clip checksum: 245523
+roll_emb mean/std: 0.0022576777264475822 0.002957375952973962
+roll_emb norm: 0.08413656800985336
+logits: [[-0.5678763   0.39534998]]
+prob_same: [0.72376734]
+Episode 01 | reward = 0.9632 | success = 0.0
+Mean abs pixel diff first-last: 3.4999598524305555
+Checksums: 130553490 130261148 130013739
+Processed clip checksum: 240794
+roll_emb mean/std: 0.0022576916962862015 0.0029573715291917324
+roll_emb norm: 0.08413667976856232
+logits: [[-0.5678777   0.39535147]]
+prob_same: [0.7237679]
+Episode 02 | reward = 0.9632 | success = 0.0
+Reward mean: 0.9632270137468973
+Reward std : 1.5545529239987178e-06
+Processed clip checksum: 235089
+Processed clip mean/std: 0.2720943093299866 0.9433731436729431
+Demo-demo logits: [[-0.5678982   0.39537328]]
+Demo-demo softmax: [[0.27622366 0.72377634]]
+Found 6 GPUs for rendering. Using device 0.

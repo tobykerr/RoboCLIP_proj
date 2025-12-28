@@ -1,0 +1,22 @@
+ARGS:
+  demo_gif: ./gifs/drawer-open-human2.gif
+  tasks: ['drawer-open-v2-goal-hidden', 'drawer-close-v2-goal-hidden', 'button-press-v2-goal-hidden', 'door-open-v2-goal-hidden', 'reach-v2-goal-hidden']
+  n_episodes: 20
+  max_steps: 128
+  seed: 0
+  log_dir: logs/dvd_tasksep_human_demo
+  clip_len: 20
+  reward_mode: logit_diff
+  reward_scale: 1.0
+  resize: 84
+  dvd_repo_root: third_party/dvd
+  dvd_sim_ckpt: third_party/dvd/pretrained/dvd_human_tasks_6_robot_tasks_3.pth.tar
+  dvd_enc_ckpt: third_party/dvd/pretrained/video_encoder/model_best.pth.tar
+
+DVDConfig:
+  clip_len: 20
+  resize_h: 84
+  resize_w: 84
+  device: cuda
+  reward_mode: logit_diff
+  reward_scale: 1.0

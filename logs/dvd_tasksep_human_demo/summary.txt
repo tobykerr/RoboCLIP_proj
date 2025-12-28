@@ -1,0 +1,26 @@
+Per-task results (mean ± std):
+
+drawer-open-v2-goal-hidden
+  prob_same: mean=0.726962, std=0.000000, min=0.726961, max=0.726962
+  reward   : mean=0.979261, std=0.000001, min=0.979260, max=0.979263
+  success  : mean=0.000000 (nan means env didn't report success)
+
+drawer-close-v2-goal-hidden
+  prob_same: mean=0.726962, std=0.000000, min=0.726961, max=0.726962
+  reward   : mean=0.979262, std=0.000001, min=0.979260, max=0.979263
+  success  : mean=0.200000 (nan means env didn't report success)
+
+button-press-v2-goal-hidden
+  prob_same: mean=0.726961, std=0.000000, min=0.726961, max=0.726962
+  reward   : mean=0.979261, std=0.000001, min=0.979258, max=0.979264
+  success  : mean=0.000000 (nan means env didn't report success)
+
+door-open-v2-goal-hidden
+  prob_same: mean=0.726962, std=0.000000, min=0.726962, max=0.726963
+  reward   : mean=0.979265, std=0.000001, min=0.979264, max=0.979267
+  success  : mean=0.000000 (nan means env didn't report success)
+
+reach-v2-goal-hidden
+  prob_same: mean=0.726962, std=0.000000, min=0.726961, max=0.726962
+  reward   : mean=0.979262, std=0.000001, min=0.979259, max=0.979263
+  success  : mean=0.000000 (nan means env didn't report success)

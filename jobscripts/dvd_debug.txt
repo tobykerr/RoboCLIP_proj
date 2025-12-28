@@ -1,0 +1,23 @@
+#!/bin/bash -login
+#SBATCH -p gpuA
+#SBATCH -G 1
+#SBATCH -t 0-00:10            # 10 minutes is enough
+#SBATCH -n 1
+#SBATCH --mem=16G
+#SBATCH -J dvd_debug
+#SBATCH -o logs/dvd_debug_%j.out
+#SBATCH -e logs/dvd_debug_%j.err
+
+module purge
+module load libs/cuda
+module load libs/gcc/glew/2.1.0
+
+conda activate roboclip
+
+export LD_LIBRARY_PATH=$HOME/.mujoco/mujoco210/bin:$LD_LIBRARY_PATH
+export MUJOCO_PY_MJKEY_PATH=$HOME/.mujoco/mjkey.txt
+export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
+export MUJOCO_GL=egl
+
+python debug_dvd_reward.py

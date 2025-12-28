@@ -10,6 +10,7 @@ import cv2
 import imageio.v2 as imageio
 
 
+
 @dataclass
 class DVDConfig:
     clip_len: int = 20
@@ -91,14 +92,42 @@ class DVDReward:
 
     @torch.no_grad()
     def terminal_reward(self, episode_frames: List[np.ndarray]) -> float:
-        frames = episode_frames[-self.cfg.clip_len :]
+        # frames = episode_frames[-self.cfg.clip_len :]
+        T = len(episode_frames) # uniform sampling rather than just the end frames
+        if T >= self.cfg.clip_len:
+            idx = np.linspace(0, T-1, self.cfg.clip_len).astype(int)
+            frames = [episode_frames[i] for i in idx]
+        else:
+            frames = episode_frames + [episode_frames[-1]] * (self.cfg.clip_len - T)
+
         if len(frames) < self.cfg.clip_len:
             frames = frames + [frames[-1]] * (self.cfg.clip_len - len(frames))
 
         rollout_clip = self._frames_to_clip(frames).to(self.device)
+        print("Processed clip checksum:", int(torch.sum(rollout_clip).item())) # debug
+        # TEMP DEBUG: dump rollout frames once
+        if not hasattr(self, "_dumped_rollout"):
+            self._dumped_rollout = True
+            # save the first, middle, last frame of the *selected* clip
+            clip = rollout_clip[0]  # [T,3,H,W]
+            T = clip.shape[0]
+            for name, idx in [("first", 0), ("mid", T//2), ("last", T-1)]:
+                img = clip[idx].detach().cpu()  # [3,H,W] normalized
+                # unnormalize for viewing
+                mean = torch.tensor([0.485, 0.456, 0.406]).view(3,1,1)
+                std  = torch.tensor([0.229, 0.224, 0.225]).view(3,1,1)
+                img = img * std + mean
+                img = (img.clamp(0,1) * 255).byte().permute(1,2,0).numpy()
+                cv2.imwrite(f"debug_rollout_{name}.png", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+
+
         roll_emb = self._encode_clip(rollout_clip)
 
         logits = self.sim_discriminator.forward(roll_emb, self.demo_emb)  # (B,2)
+        print("roll_emb mean/std:", float(roll_emb.mean()), float(roll_emb.std()))
+        print("roll_emb norm:", float(torch.norm(roll_emb, dim=-1).item()))
+        print("logits:", logits.detach().cpu().numpy())
+        print("prob_same:", torch.softmax(logits, dim=-1)[:, 1].detach().cpu().numpy())
 
         # Choose which class index corresponds to "same task"
         # In DVD training code, positives are typically labeled as class 1, negatives class 0 (common CE convention).
@@ -129,10 +158,16 @@ class DVDReward:
     def _load_gif_clip(self, gif_path: str) -> torch.Tensor:
         frames = imageio.mimread(gif_path)
         frames = [np.asarray(f)[..., :3].copy() for f in frames]
-        if len(frames) >= self.cfg.clip_len:
-            frames = frames[-self.cfg.clip_len :]
+        T = len(frames)
+        if T == 0:
+            raise ValueError(f"No frames in gif: {gif_path}")
+
+        if T >= self.cfg.clip_len:
+            idx = np.linspace(0, T-1, self.cfg.clip_len).astype(int)
+            frames = [frames[i] for i in idx]
         else:
-            frames = frames + [frames[-1]] * (self.cfg.clip_len - len(frames))
+            frames = frames + [frames[-1]] * (self.cfg.clip_len - T)
+
         return self._frames_to_clip(frames)
 
     def _frames_to_clip(self, frames):
@@ -157,6 +192,12 @@ class DVDReward:
         y0 = (h - s) // 2
         x0 = (w - s) // 2
         frame = frame[y0:y0+s, x0:x0+s]  # central square crop
-        frame = cv2.resize(frame, (84, 84), interpolation=cv2.INTER_AREA)
+        # frame = cv2.resize(frame, (84, 84), interpolation=cv2.INTER_AREA)
+        frame = cv2.resize(frame, (self.cfg.resize_w, self.cfg.resize_h), interpolation=cv2.INTER_AREA)
+        if not hasattr(self, "_dump_count"):
+            self._dump_count = 0
+        if self._dump_count < 5:
+            cv2.imwrite(f"debug_preproc_{self._dump_count}.png", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            self._dump_count += 1
         return frame
 

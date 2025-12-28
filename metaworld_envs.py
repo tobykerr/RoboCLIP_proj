@@ -203,8 +203,8 @@ class MetaworldSparseDVD(Env):
             demo_gif_path=args.demo_gif,
             cfg=DVDConfig(
                 clip_len=args.dvd_clip_len,
-                resize_h=84,
-                resize_w=84,
+                resize_h=120, # 84?
+                resize_w=120, # 84?
                 device="cuda",
                 reward_mode=args.dvd_reward_mode,
                 reward_scale=args.dvd_reward_scale,
@@ -298,7 +298,7 @@ def make_env(env_type, env_id, rank, seed=0):
         if env_type == "sparse_learnt":
             # env = MetaworldSparse(env_id=env_id, text_string="robot closing green drawer", time=True, rank=rank)             # FOR TEXTUAL REWARD
             env = MetaworldSparse(env_id=env_id, video_path=args.demo_gif, time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
-        if env_type == "sparse_dvd"::
+        elif env_type == "sparse_dvd":
             env = MetaworldSparseDVD(env_id=env_id, args=args, time=True, rank=rank)
         elif env_type == "sparse_original":
             env = KitchenEnvSparseOriginalReward(time=True)

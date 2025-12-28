@@ -1,0 +1,607 @@
+Processed clip checksum: 120552
+roll_emb mean/std: 0.0022518099285662174 0.0030123828910291195
+roll_emb norm: 0.08504831045866013
+logits: [[-0.57564056  0.40362036]]
+prob_same: [0.7269615]
+[drawer-open-v2-goal-hidden] ep 000 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.5756394   0.40361923]
+Processed clip checksum: 118276
+roll_emb mean/std: 0.0022517037577927113 0.0030123395845294
+roll_emb norm: 0.08504609018564224
+logits: [[-0.57564133  0.40362126]]
+prob_same: [0.7269619]
+[drawer-open-v2-goal-hidden] ep 001 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.5756411   0.40362096]
+Processed clip checksum: 120318
+roll_emb mean/std: 0.0022517992183566093 0.0030123558826744556
+roll_emb norm: 0.08504767715930939
+logits: [[-0.5756406   0.40362048]]
+prob_same: [0.72696155]
+[drawer-open-v2-goal-hidden] ep 002 | success=0.0 | prob_same=0.726962 | reward=0.979261 | logits=[-0.57564104  0.4036209 ]
+Processed clip checksum: 118004
+roll_emb mean/std: 0.0022518308833241463 0.0030124138575047255
+roll_emb norm: 0.08504915982484818
+logits: [[-0.5756413  0.4036212]]
+prob_same: [0.7269618]
+[drawer-open-v2-goal-hidden] ep 003 | success=0.0 | prob_same=0.726961 | reward=0.979262 | logits=[-0.5756399   0.40361977]
+Processed clip checksum: 121243
+roll_emb mean/std: 0.002251814818009734 0.0030124017503112555
+roll_emb norm: 0.08504872769117355
+logits: [[-0.57564     0.40361977]]
+prob_same: [0.7269613]
+[drawer-open-v2-goal-hidden] ep 004 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.57564    0.4036199]
+Processed clip checksum: 119050
+roll_emb mean/std: 0.002251724246889353 0.0030122906900942326
+roll_emb norm: 0.08504548668861389
+logits: [[-0.5756406   0.40362054]]
+prob_same: [0.7269616]
+[drawer-open-v2-goal-hidden] ep 005 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.57564026  0.40362012]
+Processed clip checksum: 120598
+roll_emb mean/std: 0.0022517398465424776 0.0030123041942715645
+roll_emb norm: 0.0850459411740303
+logits: [[-0.5756404  0.4036203]]
+prob_same: [0.7269615]
+[drawer-open-v2-goal-hidden] ep 006 | success=0.0 | prob_same=0.726962 | reward=0.979261 | logits=[-0.57564086  0.40362066]
+Processed clip checksum: 119572
+roll_emb mean/std: 0.002251795958727598 0.0030123742762953043
+roll_emb norm: 0.08504796773195267
+logits: [[-0.5756414   0.40362132]]
+prob_same: [0.7269619]
+[drawer-open-v2-goal-hidden] ep 007 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.5756416   0.40362144]
+Processed clip checksum: 120902
+roll_emb mean/std: 0.002251716097816825 0.0030123076867312193
+roll_emb norm: 0.08504568785429001
+logits: [[-0.57564014  0.40361995]]
+prob_same: [0.7269614]
+[drawer-open-v2-goal-hidden] ep 008 | success=0.0 | prob_same=0.726962 | reward=0.979260 | logits=[-0.57564086  0.40362072]
+Processed clip checksum: 119042
+roll_emb mean/std: 0.002251788740977645 0.003012418746948242
+roll_emb norm: 0.08504868298768997
+logits: [[-0.57564163  0.40362155]]
+prob_same: [0.72696203]
+[drawer-open-v2-goal-hidden] ep 009 | success=0.0 | prob_same=0.726961 | reward=0.979263 | logits=[-0.5756406   0.40362036]
+Processed clip checksum: 118194
+roll_emb mean/std: 0.002251808997243643 0.0030124164186418056
+roll_emb norm: 0.08504890650510788
+logits: [[-0.5756412   0.40362108]]
+prob_same: [0.7269618]
+[drawer-open-v2-goal-hidden] ep 010 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.5756406   0.40362054]
+Processed clip checksum: 118475
+roll_emb mean/std: 0.0022517479956150055 0.0030123190954327583
+roll_emb norm: 0.08504632115364075
+logits: [[-0.5756411  0.4036209]]
+prob_same: [0.72696173]
+[drawer-open-v2-goal-hidden] ep 011 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.5756409   0.40362072]
+Processed clip checksum: 121188
+roll_emb mean/std: 0.0022517547477036715 0.003012296510860324
+roll_emb norm: 0.08504600822925568
+logits: [[-0.57564056  0.40362036]]
+prob_same: [0.7269615]
+[drawer-open-v2-goal-hidden] ep 012 | success=0.0 | prob_same=0.726962 | reward=0.979261 | logits=[-0.5756406   0.40362054]
+Processed clip checksum: 121590
+roll_emb mean/std: 0.002251757076010108 0.003012310480698943
+roll_emb norm: 0.08504628390073776
+logits: [[-0.5756407   0.40362048]]
+prob_same: [0.7269616]
+[drawer-open-v2-goal-hidden] ep 013 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.57564    0.4036199]
+Processed clip checksum: 120670
+roll_emb mean/std: 0.002251759637147188 0.0030123223550617695
+roll_emb norm: 0.08504653722047806
+logits: [[-0.5756406   0.40362048]]
+prob_same: [0.72696155]
+[drawer-open-v2-goal-hidden] ep 014 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.5756405  0.4036203]
+Processed clip checksum: 120789
+roll_emb mean/std: 0.0022518157493323088 0.003012398025020957
+roll_emb norm: 0.08504866808652878
+logits: [[-0.57564     0.40361977]]
+prob_same: [0.7269613]
+[drawer-open-v2-goal-hidden] ep 015 | success=0.0 | prob_same=0.726962 | reward=0.979260 | logits=[-0.5756406   0.40362042]
+Processed clip checksum: 120305
+roll_emb mean/std: 0.002251766622066498 0.0030123302713036537
+roll_emb norm: 0.08504677563905716
+logits: [[-0.5756405   0.40362036]]
+prob_same: [0.7269615]
+[drawer-open-v2-goal-hidden] ep 016 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.57564     0.40361983]
+Processed clip checksum: 121343
+roll_emb mean/std: 0.0022518159821629524 0.0030123877804726362
+roll_emb norm: 0.08504848927259445
+logits: [[-0.57564014  0.40362006]]
+prob_same: [0.7269614]
+[drawer-open-v2-goal-hidden] ep 017 | success=0.0 | prob_same=0.726962 | reward=0.979260 | logits=[-0.57564086  0.40362066]
+Processed clip checksum: 120180
+roll_emb mean/std: 0.0022517878096550703 0.0030123754404485226
+roll_emb norm: 0.0850478783249855
+logits: [[-0.5756403   0.40362018]]
+prob_same: [0.72696143]
+[drawer-open-v2-goal-hidden] ep 018 | success=0.0 | prob_same=0.726962 | reward=0.979261 | logits=[-0.5756413  0.4036212]
+Processed clip checksum: 118489
+roll_emb mean/std: 0.0022517149336636066 0.0030123316682875156
+roll_emb norm: 0.08504609763622284
+logits: [[-0.5756407  0.4036206]]
+prob_same: [0.7269616]
+[drawer-open-v2-goal-hidden] ep 019 | success=0.0 | prob_same=0.726962 | reward=0.979261 | logits=[-0.57564074  0.40362048]
+Processed clip checksum: 120249
+roll_emb mean/std: 0.0022518401965498924 0.003012425033375621
+roll_emb norm: 0.08504948765039444
+logits: [[-0.57564074  0.40362048]]
+prob_same: [0.7269616]
+[drawer-close-v2-goal-hidden] ep 000 | success=1.0 | prob_same=0.726962 | reward=0.979261 | logits=[-0.5756408  0.4036206]
+Processed clip checksum: 118894
+roll_emb mean/std: 0.002251813653856516 0.0030124278273433447
+roll_emb norm: 0.08504918962717056
+logits: [[-0.5756411   0.40362096]]
+prob_same: [0.72696173]
+[drawer-close-v2-goal-hidden] ep 001 | success=0.0 | prob_same=0.726961 | reward=0.979262 | logits=[-0.5756405   0.40362042]
+Processed clip checksum: 121383
+roll_emb mean/std: 0.002251784782856703 0.003012338886037469
+roll_emb norm: 0.0850471705198288
+logits: [[-0.57564104  0.40362084]]
+prob_same: [0.72696173]
+[drawer-close-v2-goal-hidden] ep 002 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.57564145  0.40362132]
+Processed clip checksum: 121228
+roll_emb mean/std: 0.002251843921840191 0.003012436907738447
+roll_emb norm: 0.08504975587129593
+logits: [[-0.57564086  0.40362066]]
+prob_same: [0.7269616]
+[drawer-close-v2-goal-hidden] ep 003 | success=0.0 | prob_same=0.726961 | reward=0.979262 | logits=[-0.5756389   0.40361863]
+Processed clip checksum: 120674
+roll_emb mean/std: 0.002251790836453438 0.0030123689211905003
+roll_emb norm: 0.08504780381917953
+logits: [[-0.5756414  0.4036212]]
+prob_same: [0.7269619]
+[drawer-close-v2-goal-hidden] ep 004 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.5756416   0.40362155]
+Processed clip checksum: 119718
+roll_emb mean/std: 0.002251773839816451 0.003012338886037469
+roll_emb norm: 0.08504702895879745
+logits: [[-0.5756412   0.40362108]]
+prob_same: [0.7269618]
+[drawer-close-v2-goal-hidden] ep 005 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.57564116  0.4036212 ]
+Processed clip checksum: 121395
+roll_emb mean/std: 0.00225184578448534 0.0030124406330287457
+roll_emb norm: 0.08504984527826309
+logits: [[-0.575641    0.40362072]]
+prob_same: [0.7269617]
+[drawer-close-v2-goal-hidden] ep 006 | success=0.0 | prob_same=0.726961 | reward=0.979262 | logits=[-0.5756397   0.40361965]
+Processed clip checksum: 119825
+roll_emb mean/std: 0.002251921221613884 0.0030124622862786055
+roll_emb norm: 0.08505126088857651
+logits: [[-0.5756402  0.40362  ]]
+prob_same: [0.7269614]
+[drawer-close-v2-goal-hidden] ep 007 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.5756396   0.40361947]
+Processed clip checksum: 119719
+roll_emb mean/std: 0.002251862082630396 0.0030124366749078035
+roll_emb norm: 0.08504999428987503
+logits: [[-0.57564104  0.4036209 ]]
+prob_same: [0.72696173]
+[drawer-close-v2-goal-hidden] ep 008 | success=0.0 | prob_same=0.726961 | reward=0.979262 | logits=[-0.57563996  0.40361983]
+Processed clip checksum: 120259
+roll_emb mean/std: 0.0022519147023558617 0.0030124722979962826
+roll_emb norm: 0.08505135774612427
+logits: [[-0.57564    0.4036199]]
+prob_same: [0.7269613]
+[drawer-close-v2-goal-hidden] ep 009 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.57564    0.4036199]
+Processed clip checksum: 120916
+roll_emb mean/std: 0.002251839265227318 0.003012424800544977
+roll_emb norm: 0.08504948019981384
+logits: [[-0.57564116  0.40362108]]
+prob_same: [0.7269618]
+[drawer-close-v2-goal-hidden] ep 010 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.575641    0.40362078]
+Processed clip checksum: 121676
+roll_emb mean/std: 0.002251742873340845 0.0030123561155050993
+roll_emb norm: 0.0850469246506691
+logits: [[-0.5756402  0.40362  ]]
+prob_same: [0.7269614]
+[drawer-close-v2-goal-hidden] ep 011 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.5756404   0.40362018]
+Processed clip checksum: 118308
+roll_emb mean/std: 0.0022518550977110863 0.0030124906916171312
+roll_emb norm: 0.08505087345838547
+logits: [[-0.5756415   0.40362138]]
+prob_same: [0.726962]
+[drawer-close-v2-goal-hidden] ep 012 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.57564205  0.4036219 ]
+Processed clip checksum: 121991
+roll_emb mean/std: 0.0022518327459692955 0.003012398723512888
+roll_emb norm: 0.08504891395568848
+logits: [[-0.5756404   0.40362024]]
+prob_same: [0.7269615]
+[drawer-close-v2-goal-hidden] ep 013 | success=1.0 | prob_same=0.726962 | reward=0.979261 | logits=[-0.57564086  0.40362072]
+Processed clip checksum: 121906
+roll_emb mean/std: 0.0022518220357596874 0.0030124401673674583
+roll_emb norm: 0.08504951000213623
+logits: [[-0.57564074  0.40362048]]
+prob_same: [0.7269616]
+[drawer-close-v2-goal-hidden] ep 014 | success=1.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.57564026  0.40361995]
+Processed clip checksum: 119994
+roll_emb mean/std: 0.0022518630139529705 0.003012409433722496
+roll_emb norm: 0.08504951000213623
+logits: [[-0.57564     0.40361983]]
+prob_same: [0.7269613]
+[drawer-close-v2-goal-hidden] ep 015 | success=0.0 | prob_same=0.726962 | reward=0.979260 | logits=[-0.5756416   0.40362155]
+Processed clip checksum: 120920
+roll_emb mean/std: 0.0022517854813486338 0.0030123395845294
+roll_emb norm: 0.08504719287157059
+logits: [[-0.57564145  0.40362126]]
+prob_same: [0.7269619]
+[drawer-close-v2-goal-hidden] ep 016 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.57564086  0.40362066]
+Processed clip checksum: 121700
+roll_emb mean/std: 0.0022517931647598743 0.0030123977921903133
+roll_emb norm: 0.08504835516214371
+logits: [[-0.5756408  0.4036206]]
+prob_same: [0.7269616]
+[drawer-close-v2-goal-hidden] ep 017 | success=1.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.57564014  0.4036199 ]
+Processed clip checksum: 119583
+roll_emb mean/std: 0.0022517992183566093 0.003012420143932104
+roll_emb norm: 0.0850488469004631
+logits: [[-0.5756415   0.40362144]]
+prob_same: [0.726962]
+[drawer-close-v2-goal-hidden] ep 018 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.57564145  0.40362132]
+Processed clip checksum: 120601
+roll_emb mean/std: 0.0022517950274050236 0.0030123635660856962
+roll_emb norm: 0.08504776656627655
+logits: [[-0.5756411   0.40362096]]
+prob_same: [0.72696173]
+[drawer-close-v2-goal-hidden] ep 019 | success=0.0 | prob_same=0.726961 | reward=0.979262 | logits=[-0.57564014  0.40361995]
+Processed clip checksum: 109045
+roll_emb mean/std: 0.0022517344914376736 0.0030124180484563112
+roll_emb norm: 0.08504793047904968
+logits: [[-0.57564044  0.40362024]]
+prob_same: [0.7269615]
+[button-press-v2-goal-hidden] ep 000 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.5756403   0.40362012]
+Processed clip checksum: 110372
+roll_emb mean/std: 0.0022518227342516184 0.0030125444754958153
+roll_emb norm: 0.08505141735076904
+logits: [[-0.5756406   0.40362042]]
+prob_same: [0.72696155]
+[button-press-v2-goal-hidden] ep 001 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.57564     0.40361983]
+Processed clip checksum: 106245
+roll_emb mean/std: 0.002251741010695696 0.0030124422628432512
+roll_emb norm: 0.08504845947027206
+logits: [[-0.5756392  0.4036188]]
+prob_same: [0.72696096]
+[button-press-v2-goal-hidden] ep 002 | success=0.0 | prob_same=0.726961 | reward=0.979258 | logits=[-0.57563937  0.40361917]
+Processed clip checksum: 108332
+roll_emb mean/std: 0.0022517703473567963 0.0030124697368592024
+roll_emb norm: 0.08504936099052429
+logits: [[-0.5756398  0.4036196]]
+prob_same: [0.72696126]
+[button-press-v2-goal-hidden] ep 003 | success=0.0 | prob_same=0.726962 | reward=0.979259 | logits=[-0.57564133  0.40362126]
+Processed clip checksum: 109438
+roll_emb mean/std: 0.002251810161396861 0.0030125367920845747
+roll_emb norm: 0.08505110442638397
+logits: [[-0.5756407  0.4036206]]
+prob_same: [0.7269616]
+[button-press-v2-goal-hidden] ep 004 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.57563984  0.4036197 ]
+Processed clip checksum: 107932
+roll_emb mean/std: 0.0022518099285662174 0.003012522589415312
+roll_emb norm: 0.08505084365606308
+logits: [[-0.57564044  0.4036203 ]]
+prob_same: [0.7269615]
+[button-press-v2-goal-hidden] ep 005 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.57563925  0.40361905]
+Processed clip checksum: 112134
+roll_emb mean/std: 0.0022517931647598743 0.00301249953918159
+roll_emb norm: 0.08505020290613174
+logits: [[-0.57563984  0.40361965]]
+prob_same: [0.72696126]
+[button-press-v2-goal-hidden] ep 006 | success=0.0 | prob_same=0.726961 | reward=0.979259 | logits=[-0.5756405   0.40362042]
+Processed clip checksum: 112362
+roll_emb mean/std: 0.002251802012324333 0.003012537956237793
+roll_emb norm: 0.0850510224699974
+logits: [[-0.5756399   0.40361965]]
+prob_same: [0.72696126]
+[button-press-v2-goal-hidden] ep 007 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.57563895  0.40361857]
+Processed clip checksum: 107217
+roll_emb mean/std: 0.0022517521865665913 0.0030124662443995476
+roll_emb norm: 0.08504904061555862
+logits: [[-0.57564026  0.40362   ]]
+prob_same: [0.7269614]
+[button-press-v2-goal-hidden] ep 008 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.5756404  0.4036203]
+Processed clip checksum: 108045
+roll_emb mean/std: 0.002251777332276106 0.0030124858021736145
+roll_emb norm: 0.08504973351955414
+logits: [[-0.57564014  0.40361995]]
+prob_same: [0.7269614]
+[button-press-v2-goal-hidden] ep 009 | success=0.0 | prob_same=0.726962 | reward=0.979260 | logits=[-0.5756406   0.40362042]
+Processed clip checksum: 108695
+roll_emb mean/std: 0.002251750323921442 0.0030124415643513203
+roll_emb norm: 0.08504857122898102
+logits: [[-0.5756399  0.4036197]]
+prob_same: [0.72696126]
+[button-press-v2-goal-hidden] ep 010 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.57564     0.40361977]
+Processed clip checksum: 109470
+roll_emb mean/std: 0.0022518369369208813 0.0030125395860522985
+roll_emb norm: 0.0850515216588974
+logits: [[-0.5756411   0.40362096]]
+prob_same: [0.72696173]
+[button-press-v2-goal-hidden] ep 011 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.5756416   0.40362144]
+Processed clip checksum: 110060
+roll_emb mean/std: 0.0022518248297274113 0.0030125484336167574
+roll_emb norm: 0.0850515142083168
+logits: [[-0.5756407  0.4036206]]
+prob_same: [0.7269616]
+[button-press-v2-goal-hidden] ep 012 | success=0.0 | prob_same=0.726962 | reward=0.979261 | logits=[-0.5756419   0.40362185]
+Processed clip checksum: 109359
+roll_emb mean/std: 0.0022518043406307697 0.00301249953918159
+roll_emb norm: 0.08505035191774368
+logits: [[-0.57564193  0.4036219 ]]
+prob_same: [0.72696215]
+[button-press-v2-goal-hidden] ep 013 | success=0.0 | prob_same=0.726962 | reward=0.979264 | logits=[-0.57564086  0.40362072]
+Processed clip checksum: 108342
+roll_emb mean/std: 0.002251844387501478 0.0030125381890684366
+roll_emb norm: 0.08505158871412277
+logits: [[-0.5756411   0.40362096]]
+prob_same: [0.72696173]
+[button-press-v2-goal-hidden] ep 014 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.57564163  0.4036215 ]
+Processed clip checksum: 109871
+roll_emb mean/std: 0.002251783851534128 0.0030124809127300978
+roll_emb norm: 0.08504973351955414
+logits: [[-0.5756416   0.40362155]]
+prob_same: [0.72696203]
+[button-press-v2-goal-hidden] ep 015 | success=0.0 | prob_same=0.726961 | reward=0.979263 | logits=[-0.5756396  0.4036194]
+Processed clip checksum: 109329
+roll_emb mean/std: 0.002251799451187253 0.0030124965123832226
+roll_emb norm: 0.08505023270845413
+logits: [[-0.57564086  0.40362072]]
+prob_same: [0.7269617]
+[button-press-v2-goal-hidden] ep 016 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.57564163  0.4036216 ]
+Processed clip checksum: 111725
+roll_emb mean/std: 0.0022518099285662174 0.0030125423800200224
+roll_emb norm: 0.08505120128393173
+logits: [[-0.57564     0.40361977]]
+prob_same: [0.7269613]
+[button-press-v2-goal-hidden] ep 017 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.5756385  0.4036181]
+Processed clip checksum: 112473
+roll_emb mean/std: 0.0022517754696309566 0.0030124736949801445
+roll_emb norm: 0.08504949510097504
+logits: [[-0.5756399  0.4036197]]
+prob_same: [0.72696126]
+[button-press-v2-goal-hidden] ep 018 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.57563937  0.40361917]
+Processed clip checksum: 112454
+roll_emb mean/std: 0.0022517875768244267 0.0030124869663268328
+roll_emb norm: 0.08504989743232727
+logits: [[-0.57564026  0.40362012]]
+prob_same: [0.72696143]
+[button-press-v2-goal-hidden] ep 019 | success=0.0 | prob_same=0.726961 | reward=0.979260 | logits=[-0.57563865  0.4036184 ]
+Processed clip checksum: 93140
+roll_emb mean/std: 0.0022518986370414495 0.0030125619377940893
+roll_emb norm: 0.08505275100469589
+logits: [[-0.57564193  0.4036218 ]]
+prob_same: [0.72696215]
+[door-open-v2-goal-hidden] ep 000 | success=0.0 | prob_same=0.726962 | reward=0.979264 | logits=[-0.57564217  0.40362203]
+Processed clip checksum: 93232
+roll_emb mean/std: 0.0022518723271787167 0.0030125239863991737
+roll_emb norm: 0.08505171537399292
+logits: [[-0.5756425  0.4036225]]
+prob_same: [0.7269623]
+[door-open-v2-goal-hidden] ep 001 | success=0.0 | prob_same=0.726963 | reward=0.979265 | logits=[-0.5756433   0.40362328]
+Processed clip checksum: 96518
+roll_emb mean/std: 0.0022519249469041824 0.0030125745106488466
+roll_emb norm: 0.08505334705114365
+logits: [[-0.5756425  0.4036225]]
+prob_same: [0.7269623]
+[door-open-v2-goal-hidden] ep 002 | success=0.0 | prob_same=0.726962 | reward=0.979265 | logits=[-0.5756411   0.40362096]
+Processed clip checksum: 93256
+roll_emb mean/std: 0.0022518900223076344 0.0030125442426651716
+roll_emb norm: 0.08505232632160187
+logits: [[-0.5756422  0.4036221]]
+prob_same: [0.7269622]
+[door-open-v2-goal-hidden] ep 003 | success=0.0 | prob_same=0.726963 | reward=0.979264 | logits=[-0.57564354  0.40362358]
+Processed clip checksum: 94337
+roll_emb mean/std: 0.0022517931647598743 0.0030124285258352757
+roll_emb norm: 0.08504891395568848
+logits: [[-0.5756426  0.4036225]]
+prob_same: [0.7269624]
+[door-open-v2-goal-hidden] ep 004 | success=0.0 | prob_same=0.726962 | reward=0.979265 | logits=[-0.5756423  0.4036221]
+Processed clip checksum: 95405
+roll_emb mean/std: 0.0022519160993397236 0.0030125747434794903
+roll_emb norm: 0.0850532203912735
+logits: [[-0.5756423   0.40362215]]
+prob_same: [0.72696227]
+[door-open-v2-goal-hidden] ep 005 | success=0.0 | prob_same=0.726962 | reward=0.979264 | logits=[-0.57564104  0.40362096]
+Processed clip checksum: 96405
+roll_emb mean/std: 0.002251829020678997 0.003012480214238167
+roll_emb norm: 0.08505032956600189
+logits: [[-0.5756424  0.4036222]]
+prob_same: [0.72696227]
+[door-open-v2-goal-hidden] ep 006 | success=0.0 | prob_same=0.726962 | reward=0.979265 | logits=[-0.5756417   0.40362155]
+Processed clip checksum: 95940
+roll_emb mean/std: 0.0022518858313560486 0.0030125139746814966
+roll_emb norm: 0.08505171537399292
+logits: [[-0.5756425  0.4036224]]
+prob_same: [0.7269623]
+[door-open-v2-goal-hidden] ep 007 | success=0.0 | prob_same=0.726962 | reward=0.979265 | logits=[-0.57564247  0.4036224 ]
+Processed clip checksum: 96218
+roll_emb mean/std: 0.0022519067861139774 0.0030125114135444164
+roll_emb norm: 0.08505195379257202
+logits: [[-0.575643    0.40362287]]
+prob_same: [0.7269625]
+[door-open-v2-goal-hidden] ep 008 | success=0.0 | prob_same=0.726962 | reward=0.979266 | logits=[-0.57564133  0.4036212 ]
+Processed clip checksum: 93621
+roll_emb mean/std: 0.0022519133053719997 0.0030126001220196486
+roll_emb norm: 0.08505364507436752
+logits: [[-0.57564193  0.4036218 ]]
+prob_same: [0.72696215]
+[door-open-v2-goal-hidden] ep 009 | success=0.0 | prob_same=0.726962 | reward=0.979264 | logits=[-0.57564133  0.40362114]
+Processed clip checksum: 93300
+roll_emb mean/std: 0.0022518595214933157 0.0030125088524073362
+roll_emb norm: 0.0850512683391571
+logits: [[-0.5756423   0.40362215]]
+prob_same: [0.72696227]
+[door-open-v2-goal-hidden] ep 010 | success=0.0 | prob_same=0.726962 | reward=0.979264 | logits=[-0.57564247  0.4036224 ]
+Processed clip checksum: 96566
+roll_emb mean/std: 0.0022519074846059084 0.003012550761923194
+roll_emb norm: 0.08505267649888992
+logits: [[-0.57564205  0.4036218 ]]
+prob_same: [0.72696215]
+[door-open-v2-goal-hidden] ep 011 | success=0.0 | prob_same=0.726962 | reward=0.979264 | logits=[-0.5756423   0.40362215]
+Processed clip checksum: 92791
+roll_emb mean/std: 0.0022518483456224203 0.0030125139746814966
+roll_emb norm: 0.08505120873451233
+logits: [[-0.5756431  0.4036231]]
+prob_same: [0.72696257]
+[door-open-v2-goal-hidden] ep 012 | success=0.0 | prob_same=0.726963 | reward=0.979266 | logits=[-0.5756433   0.40362334]
+Processed clip checksum: 93843
+roll_emb mean/std: 0.0022518106270581484 0.0030124627519398928
+roll_emb norm: 0.08504977822303772
+logits: [[-0.575643    0.40362287]]
+prob_same: [0.7269625]
+[door-open-v2-goal-hidden] ep 013 | success=0.0 | prob_same=0.726963 | reward=0.979266 | logits=[-0.57564443  0.40362453]
+Processed clip checksum: 93531
+roll_emb mean/std: 0.0022518073674291372 0.003012453904375434
+roll_emb norm: 0.085049569606781
+logits: [[-0.5756425  0.4036225]]
+prob_same: [0.7269623]
+[door-open-v2-goal-hidden] ep 014 | success=0.0 | prob_same=0.726962 | reward=0.979265 | logits=[-0.5756411  0.4036209]
+Processed clip checksum: 96646
+roll_emb mean/std: 0.002251826925203204 0.0030124629847705364
+roll_emb norm: 0.08505000174045563
+logits: [[-0.5756423   0.40362215]]
+prob_same: [0.72696227]
+[door-open-v2-goal-hidden] ep 015 | success=0.0 | prob_same=0.726962 | reward=0.979264 | logits=[-0.5756424   0.40362227]
+Processed clip checksum: 96375
+roll_emb mean/std: 0.0022518581245094538 0.003012472065165639
+roll_emb norm: 0.08505058288574219
+logits: [[-0.57564294  0.40362287]]
+prob_same: [0.7269625]
+[door-open-v2-goal-hidden] ep 016 | success=0.0 | prob_same=0.726963 | reward=0.979266 | logits=[-0.5756429   0.40362287]
+Processed clip checksum: 95769
+roll_emb mean/std: 0.0022518576588481665 0.0030124641489237547
+roll_emb norm: 0.08505043387413025
+logits: [[-0.57564294  0.40362287]]
+prob_same: [0.7269625]
+[door-open-v2-goal-hidden] ep 017 | success=0.0 | prob_same=0.726963 | reward=0.979266 | logits=[-0.575643    0.40362293]
+Processed clip checksum: 95584
+roll_emb mean/std: 0.002251841826364398 0.0030124299228191376
+roll_emb norm: 0.0850495994091034
+logits: [[-0.5756434   0.40362352]]
+prob_same: [0.72696275]
+[door-open-v2-goal-hidden] ep 018 | success=0.0 | prob_same=0.726963 | reward=0.979267 | logits=[-0.57564336  0.40362328]
+Processed clip checksum: 95965
+roll_emb mean/std: 0.0022518616169691086 0.0030124715995043516
+roll_emb norm: 0.08505062013864517
+logits: [[-0.5756428   0.40362263]]
+prob_same: [0.72696245]
+[door-open-v2-goal-hidden] ep 019 | success=0.0 | prob_same=0.726962 | reward=0.979265 | logits=[-0.5756422   0.40362215]
+Processed clip checksum: 117649
+roll_emb mean/std: 0.0022517298348248005 0.003012355649843812
+roll_emb norm: 0.08504673838615417
+logits: [[-0.575641   0.4036209]]
+prob_same: [0.72696173]
+[reach-v2-goal-hidden] ep 000 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.57564104  0.40362084]
+Processed clip checksum: 117370
+roll_emb mean/std: 0.002251711906865239 0.003012346802279353
+roll_emb norm: 0.08504633605480194
+logits: [[-0.5756413   0.40362108]]
+prob_same: [0.7269618]
+[reach-v2-goal-hidden] ep 001 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.57564205  0.4036219 ]
+Processed clip checksum: 118273
+roll_emb mean/std: 0.0022517815232276917 0.0030123924370855093
+roll_emb norm: 0.08504810929298401
+logits: [[-0.57564133  0.40362126]]
+prob_same: [0.7269619]
+[reach-v2-goal-hidden] ep 002 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.5756413   0.40362132]
+Processed clip checksum: 118150
+roll_emb mean/std: 0.0022518255282193422 0.0030124508775770664
+roll_emb norm: 0.08504975587129593
+logits: [[-0.5756417   0.40362167]]
+prob_same: [0.72696203]
+[reach-v2-goal-hidden] ep 003 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.57564175  0.4036216 ]
+Processed clip checksum: 120737
+roll_emb mean/std: 0.0022517554461956024 0.0030124213080853224
+roll_emb norm: 0.08504827320575714
+logits: [[-0.5756405   0.40362036]]
+prob_same: [0.7269615]
+[reach-v2-goal-hidden] ep 004 | success=0.0 | prob_same=0.726961 | reward=0.979261 | logits=[-0.5756405   0.40362024]
+Processed clip checksum: 117048
+roll_emb mean/std: 0.002251725411042571 0.003012353554368019
+roll_emb norm: 0.08504663407802582
+logits: [[-0.57564086  0.40362066]]
+prob_same: [0.7269616]
+[reach-v2-goal-hidden] ep 005 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.5756413  0.4036212]
+Processed clip checksum: 118176
+roll_emb mean/std: 0.002251856494694948 0.0030124636832624674
+roll_emb norm: 0.08505041152238846
+logits: [[-0.5756406   0.40362036]]
+prob_same: [0.7269615]
+[reach-v2-goal-hidden] ep 006 | success=0.0 | prob_same=0.726962 | reward=0.979261 | logits=[-0.57564175  0.40362167]
+Processed clip checksum: 118517
+roll_emb mean/std: 0.0022518215700984 0.0030124483164399862
+roll_emb norm: 0.08504965901374817
+logits: [[-0.5756409   0.40362078]]
+prob_same: [0.7269617]
+[reach-v2-goal-hidden] ep 007 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.5756412   0.40362108]
+Processed clip checksum: 117791
+roll_emb mean/std: 0.0022518557962030172 0.0030124487821012735
+roll_emb norm: 0.08505012840032578
+logits: [[-0.5756413   0.40362132]]
+prob_same: [0.7269619]
+[reach-v2-goal-hidden] ep 008 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.5756419  0.4036219]
+Processed clip checksum: 116779
+roll_emb mean/std: 0.002251804806292057 0.0030124536715447903
+roll_emb norm: 0.08504952490329742
+logits: [[-0.5756415   0.40362144]]
+prob_same: [0.726962]
+[reach-v2-goal-hidden] ep 009 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.5756416   0.40362138]
+Processed clip checksum: 117241
+roll_emb mean/std: 0.002251741476356983 0.0030123586766421795
+roll_emb norm: 0.08504694700241089
+logits: [[-0.5756411   0.40362084]]
+prob_same: [0.72696173]
+[reach-v2-goal-hidden] ep 010 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.57564104  0.4036209 ]
+Processed clip checksum: 117047
+roll_emb mean/std: 0.0022517561446875334 0.0030123847536742687
+roll_emb norm: 0.08504762500524521
+logits: [[-0.575641    0.40362084]]
+prob_same: [0.72696173]
+[reach-v2-goal-hidden] ep 011 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.5756415  0.4036215]
+Processed clip checksum: 118661
+roll_emb mean/std: 0.0022517871111631393 0.0030123936012387276
+roll_emb norm: 0.08504820615053177
+logits: [[-0.575641    0.40362078]]
+prob_same: [0.7269617]
+[reach-v2-goal-hidden] ep 012 | success=0.0 | prob_same=0.726961 | reward=0.979262 | logits=[-0.5756403   0.40362018]
+Processed clip checksum: 120007
+roll_emb mean/std: 0.002251794096082449 0.0030124203767627478
+roll_emb norm: 0.08504877984523773
+logits: [[-0.5756411   0.40362096]]
+prob_same: [0.72696173]
+[reach-v2-goal-hidden] ep 013 | success=0.0 | prob_same=0.726961 | reward=0.979262 | logits=[-0.5756402  0.40362  ]
+Processed clip checksum: 118438
+roll_emb mean/std: 0.0022517279721796513 0.003012369154021144
+roll_emb norm: 0.08504696190357208
+logits: [[-0.57564104  0.40362096]]
+prob_same: [0.72696173]
+[reach-v2-goal-hidden] ep 014 | success=0.0 | prob_same=0.726961 | reward=0.979262 | logits=[-0.57564044  0.40362018]
+Processed clip checksum: 119261
+roll_emb mean/std: 0.002251824364066124 0.003012474626302719
+roll_emb norm: 0.08505017310380936
+logits: [[-0.575641    0.40362078]]
+prob_same: [0.7269617]
+[reach-v2-goal-hidden] ep 015 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.57564086  0.40362072]
+Processed clip checksum: 118935
+roll_emb mean/std: 0.0022518914192914963 0.0030125200282782316
+roll_emb norm: 0.08505190163850784
+logits: [[-0.57563967  0.40361953]]
+prob_same: [0.7269612]
+[reach-v2-goal-hidden] ep 016 | success=0.0 | prob_same=0.726961 | reward=0.979259 | logits=[-0.5756394  0.4036193]
+Processed clip checksum: 118628
+roll_emb mean/std: 0.0022518550977110863 0.003012483473867178
+roll_emb norm: 0.08505074679851532
+logits: [[-0.57564086  0.40362072]]
+prob_same: [0.7269617]
+[reach-v2-goal-hidden] ep 017 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.575641    0.40362078]
+Processed clip checksum: 117976
+roll_emb mean/std: 0.0022518327459692955 0.0030124466866254807
+roll_emb norm: 0.08504977822303772
+logits: [[-0.57564133  0.4036212 ]]
+prob_same: [0.7269619]
+[reach-v2-goal-hidden] ep 018 | success=0.0 | prob_same=0.726962 | reward=0.979263 | logits=[-0.57564145  0.40362138]
+Processed clip checksum: 118637
+roll_emb mean/std: 0.002251822268590331 0.0030124380718916655
+roll_emb norm: 0.08504948019981384
+logits: [[-0.575641    0.40362084]]
+prob_same: [0.72696173]
+[reach-v2-goal-hidden] ep 019 | success=0.0 | prob_same=0.726962 | reward=0.979262 | logits=[-0.57564133  0.40362132]
+
+Wrote:
+  logs/dvd_tasksep_human_demo/episodes.csv
+  logs/dvd_tasksep_human_demo/summary.txt
+  plots into logs/dvd_tasksep_human_demo
+
+Found 6 GPUs for rendering. Using device 0.
