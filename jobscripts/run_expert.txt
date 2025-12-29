@@ -1,0 +1,16 @@
+#!/bin/bash -login
+#SBATCH -o %x.o%j
+#SBATCH -p serial
+#SBATCH -t 10            # time limit of 1 day
+
+module purge
+
+conda activate roboclip
+export LD_LIBRARY_PATH=$HOME/.mujoco/mujoco210/bin:$LD_LIBRARY_PATH
+export MUJOCO_PY_MJKEY_PATH=$HOME/.mujoco/mjkey.txt
+export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
+export MUJOCO_GL=egl
+
+python tools/run_expert_policy.py \
+  --env-id drawer-open-v2-goal-hidden

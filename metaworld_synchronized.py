@@ -4,6 +4,10 @@
 #     reward = similarity_matrix.detach().numpy()[0][0]
 # - SubprocVecEnv + PPO + EvalCallback (same overall experiment style)
 #
+# OOM fix (same as before):
+# - Do NOT read/encode demo gifs inside each SubprocVecEnv worker.
+# - Load precomputed demo embeddings from a single .pt cache file instead.
+#
 # Notes:
 # - PPO can still run on GPU via --ppo-device cuda (this matches SB3 behavior),
 #   but S3D inference remains CPU, as in RoboCLIP's released code.
@@ -32,7 +36,6 @@ import metaworld  # noqa: F401
 from metaworld.envs import ALL_V2_ENVIRONMENTS_GOAL_HIDDEN
 
 from s3dg import S3D
-from kitchen_env_wrappers import readGif
 
 
 # -------------------------
@@ -55,6 +58,14 @@ def get_args():
     # Demos
     p.add_argument("--demo-dir", type=str, default="./gifs/custom/drawer-open-human")
     p.add_argument("--num-demo", type=int, default=28)
+
+    # >>> OOM FIX: load demos from a precomputed cache .pt <<<
+    p.add_argument(
+        "--demo-cache",
+        type=str,
+        default="demo_embeds.pt",
+        help="Path to precomputed demo embeddings .pt file (contains demo_embeddings: [N,D]).",
+    )
 
     # Control whether demo preprocessing is "human" vs "metaworld" (same meaning as RoboCLIP)
     # Python 3.9+: BooleanOptionalAction gives --human / --no-human
@@ -110,7 +121,7 @@ def get_args():
 class MetaworldSparseMultiSynchronized(Env):
     """
     Like RoboCLIP MetaworldSparse, but:
-    - loads multiple demo embeddings (1.gif..N.gif)
+    - loads multiple demo embeddings (precomputed .pt cache)
     - reward uses ONLY current demo embedding (exact same matmul form as RoboCLIP)
     - current demo index is set externally (synchronized via callback)
     - S3D stays on CPU (faithful to RoboCLIP code)
@@ -127,14 +138,16 @@ class MetaworldSparseMultiSynchronized(Env):
         s3d_dict_path: str = "s3d_dict.npy",
         s3d_weights_path: str = "s3d_howto100m.pth",
         max_episode_steps: int = 128,
+        # >>> OOM FIX: cache path <<<
+        demo_cache_path: str = "demo_embeds.pt",
     ):
         super().__init__()
 
         self.env_id = env_id
         self.num_demo = int(num_demo)
-        self.demo_dir = demo_dir
-        assert self.demo_dir is not None, "demo_dir must be provided"
+        self.demo_dir = demo_dir  # kept for compatibility / logging, but not used for loading now
         self.current_demo_index = 0
+        self.demo_cache_path = demo_cache_path
 
         env_cls = ALL_V2_ENVIRONMENTS_GOAL_HIDDEN[self.env_id]
         base_env = env_cls(seed=rank)
@@ -160,28 +173,18 @@ class MetaworldSparseMultiSynchronized(Env):
         self.net.load_state_dict(th.load(s3d_weights_path, map_location="cpu"))
         self.net = self.net.eval()
 
-        # ---- Load demo embeddings once ----
-        self.targets = []
-        for i in range(self.num_demo):
-            path = os.path.join(self.demo_dir, f"{i+1}.gif")
-            frames = readGif(path)
-
-            if human:
-                frames = self.preprocess_human_demo(frames)
-            else:
-                frames = self.preprocess_metaworld(frames)
-
-            if frames.shape[1] > 3:
-                frames = frames[:, :3]
-
-            video = th.from_numpy(frames)  # CPU tensor
-            video_output = self.net(video.float())  # faithful: no no_grad()
-            self.targets.append(video_output["video_embedding"].detach().cpu())  # [1,D] on CPU
-
-        assert len(self.targets) == self.num_demo, (
-            f"Loaded {len(self.targets)} demos, expected {self.num_demo}. "
-            f"Check demo_dir and filenames 1.gif..{self.num_demo}.gif"
+        # >>> OOM FIX: Load demo embeddings from cache instead of reading gifs in each worker <<<
+        cache = th.load(self.demo_cache_path, map_location="cpu")
+        demo_mat = cache["demo_embeddings"] if isinstance(cache, dict) and "demo_embeddings" in cache else cache
+        assert isinstance(demo_mat, th.Tensor), "demo_cache must contain a torch Tensor or dict with key 'demo_embeddings'"
+        assert demo_mat.dim() == 2, f"Expected demo_embeddings to have shape [N,D], got {tuple(demo_mat.shape)}"
+        assert demo_mat.shape[0] == self.num_demo, (
+            f"Cache has {demo_mat.shape[0]} demos, expected {self.num_demo}. "
+            f"Check --num-demo and the cache file."
         )
+
+        # Store as list of [1,D] tensors, matching previous code paths
+        self.targets = [demo_mat[i:i + 1].detach().cpu() for i in range(self.num_demo)]
 
     # Called by callback via VecEnv.env_method (works with SubprocVecEnv)
     def set_current_demo_index(self, idx: int):
@@ -245,7 +248,7 @@ class MetaworldSparseMultiSynchronized(Env):
             video_embedding = video_output["video_embedding"].detach().cpu()  # [1,D] CPU
 
             # ---- EXACT RoboCLIP single-demo reward computation ----
-            target_embedding = self.targets[self.current_demo_index]           # [1,D] CPU
+            target_embedding = self.targets[self.current_demo_index]              # [1,D] CPU
             similarity_matrix = th.matmul(target_embedding, video_embedding.t())  # [1,1]
             reward = similarity_matrix.detach().numpy()[0][0]  # EXACT form
 
@@ -471,6 +474,8 @@ def make_env(args, env_type: str, env_id: str, rank: int, log_dir: str):
                 s3d_dict_path=args.s3d_dict,
                 s3d_weights_path=args.s3d_weights,
                 max_episode_steps=128,
+                # >>> OOM FIX: pass cache path into each worker <<<
+                demo_cache_path=args.demo_cache,
             )
         else:
             env = MetaworldDense(env_id=env_id, time=True, rank=rank, max_episode_steps=128)

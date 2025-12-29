@@ -1,10 +1,13 @@
 #!/bin/bash -login
 #SBATCH -o %x.o%j
+#SBATCH --output stdout-%j.log # stdout
+#SBATCH --error stderr-%j.log #stderr
+
 #SBATCH -p gpuA             # use A100 80GB GPU
 #SBATCH -G 1                # use 1 GPU
-#SBATCH -t 1-0              # time limit of 1 day
+#SBATCH -t 3-0              # time limit of 1 day
 
-#SBATCH -n 1               # number of CPU host cores to use (1-12)
+#SBATCH -n 10               # number of CPU host cores to use (1-12)
 #SBATCH --mem=64G          # set RAM needed (otherwise will be very low, since using only 1 CPU)
 
 module purge
@@ -24,4 +27,7 @@ python metaworld_multidemos.py \
   --total-time-steps 1000000 \
   --n-envs 8 \
   --n-steps 128 \
+  --demo-dir ./gifs/custom/drawer-open-human \
+  --num-demo 28 \
+  --demo-cache ./gifs/custom/drawer-open-human/demo_embeds.pt \
   --dir-add _softmaxsim28_tau1

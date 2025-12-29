@@ -46,6 +46,77 @@ from transformers import CLIPProcessor, CLIPModel
 
 from metaworld_envs import MetaworldDense
 
+def build_demo_cache(
+    demo_dir: str,
+    num_demo: int,
+    human: bool,
+    s3d_dict_path: str = "s3d_dict.npy",
+    s3d_weights_path: str = "s3d_howto100m.pth",
+    device: str = "cpu",
+    out_path: str = "demo_embeds.pt",
+):
+    """
+    Builds a [num_demo, D] tensor of demo embeddings and saves it to out_path.
+    This runs ONCE in the main process, so SubprocVecEnv workers don't redo it.
+    """
+    assert os.path.isdir(demo_dir), f"demo_dir not found: {demo_dir}"
+
+    dev = th.device(device)
+    net = S3D(s3d_dict_path, 512)
+    net.load_state_dict(th.load(s3d_weights_path, map_location="cpu"))
+    net.eval()
+    net.to(dev)
+
+    def preprocess_human(frames):
+        frames = np.array(frames)[None, ...]          # [1,T,H,W,C]
+        frames = frames.transpose(0, 4, 1, 2, 3)      # [1,C,T,H,W]
+        return frames
+
+    def preprocess_metaworld(frames, shorten=True, crop=True):
+        frames = np.array(frames)
+        if crop:
+            center = 240, 320
+            h, w = (250, 250)
+            x = int(center[1] - w/2)
+            y = int(center[0] - h/2)
+            frames = np.array([f[y:y+h, x:x+w] for f in frames])
+        frames = frames[None, ...]                    # [1,T,H,W,C]
+        frames = frames.transpose(0, 4, 1, 2, 3)      # [1,C,T,H,W]
+        if shorten:
+            frames = frames[:, :, ::4, :, :]
+        return frames
+
+    embeds = []
+    with th.no_grad():
+        for i in range(num_demo):
+            path = os.path.join(demo_dir, f"{i+1}.gif")
+            frames = readGif(path)
+            frames = preprocess_human(frames) if human else preprocess_metaworld(frames)
+            if frames.shape[1] > 3:
+                frames = frames[:, :3]
+            video = th.from_numpy(frames).float().to(dev)
+            out = net(video)
+            z = out["video_embedding"].detach().cpu()     # [1,D]
+            embeds.append(z)
+
+    demo_mat = th.cat(embeds, dim=0)  # [N,D]
+    th.save(
+        {
+            "demo_embeddings": demo_mat,  # CPU tensor
+            "meta": {
+                "demo_dir": demo_dir,
+                "num_demo": num_demo,
+                "human": human,
+                "s3d_dict": s3d_dict_path,
+                "s3d_weights": s3d_weights_path,
+            },
+        },
+        out_path,
+    )
+    print(f"[DemoCache] Saved {demo_mat.shape} -> {out_path}")
+    return out_path
+
+
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument('--algo', type=str, default='ppo')
@@ -57,6 +128,12 @@ def get_args():
     parser.add_argument('--n-envs', type=int, default=8)
     parser.add_argument('--n-steps', type=int, default=128)
     parser.add_argument('--pretrained', type=str, default=None)
+    parser.add_argument("--demo-dir", type=str, default="./gifs/custom/drawer-open-human")
+    parser.add_argument("--num-demo", type=int, default=28)
+    parser.add_argument("--demo-cache", type=str, default="demo_embeds.pt",
+                    help="Path to saved demo embeddings .pt")
+    parser.add_argument("--build-demo-cache", action="store_true",
+                        help="If set, build demo cache then exit.")
 
 
     args = parser.parse_args()
@@ -64,9 +141,10 @@ def get_args():
 
 
 class MetaworldSparseMultiBase(Env):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28):
+    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28, demo_cache_path="demo_embeds.pt"):
         super(MetaworldSparseMultiBase,self)
         self.num_demo = num_demo
+        self.demo_cache_path = demo_cache_path
         door_open_goal_hidden_cls = ALL_V2_ENVIRONMENTS_GOAL_HIDDEN[env_id]
         env = door_open_goal_hidden_cls(seed=rank)
         self.env = TimeLimit(env, max_episode_steps=128)
@@ -85,24 +163,31 @@ class MetaworldSparseMultiBase(Env):
         # Evaluation mode
         self.net = self.net.eval()
         self.targets = []
-        if video_path:
-            for i in range(num_demo):
-                path = video_path+f"/{i+1}.gif" # assume gifs placed in folder specified by video_demo and are named 1.gif, 2.gif, ...
-                frames = readGif(path)
-                # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", len(frames))
-                # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", frames[0].shape)
-                if human:
-                    frames = self.preprocess_human_demo(frames)
-                else:
-                    frames = self.preprocess_metaworld(frames)
-                if frames.shape[1]>3:
-                    frames = frames[:,:3]
-                # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", frames.shape)
-                video = th.from_numpy(frames)
-                video_output = self.net(video.float())
-                self.targets.append(video_output['video_embedding'])
+        # if video_path:
+        #     for i in range(num_demo):
+        #         path = video_path+f"/{i+1}.gif" # assume gifs placed in folder specified by video_demo and are named 1.gif, 2.gif, ...
+        #         frames = readGif(path)
+        #         # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", len(frames))
+        #         # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", frames[0].shape)
+        #         if human:
+        #             frames = self.preprocess_human_demo(frames)
+        #         else:
+        #             frames = self.preprocess_metaworld(frames)
+        #         if frames.shape[1]>3:
+        #             frames = frames[:,:3]
+        #         # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", frames.shape)
+        #         video = th.from_numpy(frames)
+        #         video_output = self.net(video.float())
+        #         self.targets.append(video_output['video_embedding'])
+
+        # assert len(self.targets) == self.num_demo, f"Loaded {len(self.targets)} demos, expected {self.num_demo}"
         
-        assert len(self.targets) == self.num_demo, f"Loaded {len(self.targets)} demos, expected {self.num_demo}"
+        # load cache instead of reading gifs:
+        cache = th.load(self.demo_cache_path, map_location="cpu")
+        self.targets_mat = cache["demo_embeddings"]          # [N,D] CPU tensor
+        assert self.targets_mat.shape[0] == self.num_demo, f"Cache has {self.targets_mat.shape[0]} demos, expected {self.num_demo}"
+        self.targets = [self.targets_mat[i:i+1] for i in range(self.num_demo)]
+
         if rank == 0:
             print(f"[Init] env_id={env_id} | num_demo={self.num_demo} | loaded={len(self.targets)}")
             print(f"[Init] obs_space={self.observation_space} | act_space={self.action_space}")
@@ -119,13 +204,15 @@ class MetaworldSparseMultiBase(Env):
         frames = frames.transpose(0, 4, 1, 2, 3)
         return frames
 
-    def preprocess_metaworld(self, frames, shorten=True):
-        center = 240, 320
-        h, w = (250, 250)
-        x = int(center[1] - w/2)
-        y = int(center[0] - h/2)
-        # frames = np.array([cv2.resize(frame, dsize=(250, 250), interpolation=cv2.INTER_CUBIC) for frame in frames])
-        frames = np.array([frame[y:y+h, x:x+w] for frame in frames])
+    def preprocess_metaworld(self, frames, shorten=True, crop=True):
+        frames = np.array(frames)
+        if crop:
+            center = 240, 320
+            h, w = (250, 250)
+            x = int(center[1] - w/2)
+            y = int(center[0] - h/2)
+            # frames = np.array([cv2.resize(frame, dsize=(250, 250), interpolation=cv2.INTER_CUBIC) for frame in frames])
+            frames = np.array([frame[y:y+h, x:x+w] for frame in frames])
         a = frames
         frames = frames[None, :,:,:,:]
         frames = frames.transpose(0, 4, 1, 2, 3)
@@ -155,13 +242,26 @@ class MetaworldSparseMultiBase(Env):
         else:
             obs, env_rew, terminated, truncated, info = out
             done = terminated or truncated
-        self.past_observations.append(self.env.render())
+
+        #self.past_observations.append(self.env.render()) # original, below is more efficient (only keeps every 4th frame since this would happen in preprocess_metaworld anyway)
+        frame = self.env.render()
+        if frame is not None:
+            #crop to 250x250 as in preprocess_metaworld
+            center = 240, 320
+            h, w = (250, 250)
+            x = int(center[1] - w/2)
+            y = int(center[0] - h/2)
+            frame = frame[y:y+h, x:x+w]
+            #only keep every 4th frame
+            if self.counter % 4 == 0:
+                self.past_observations.append(frame)
+
         self.counter += 1
         t = self.counter/128
         if self.time:
             obs = np.concatenate([obs, np.array([t])])
         if done:
-            frames = self.preprocess_metaworld(self.past_observations)
+            frames = self.preprocess_metaworld(self.past_observations, shorten=False, crop=False) # set shorten=False since we already did frame skipping above
             
         
         
@@ -188,15 +288,18 @@ class MetaworldSparseMultiBase(Env):
     def reset(self):
         self.past_observations = []
         self.counter = 0
+        obs = self.env.reset()
+        if isinstance(obs, tuple):
+            obs = obs[0]
         if not self.time:
-            return self.env.reset()
-        return np.concatenate([self.env.reset(), np.array([0.0])])
+            return obs
+        return np.concatenate([obs, np.array([0.0])])
 
 
 class MetaworldSparseMultiMean(MetaworldSparseMultiBase):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28):
-        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
-    
+    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28, demo_cache_path="demo_embeds.pt"):
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo, demo_cache_path)
+
     def compute_reward(self, video_embedding):
         """Sum the similarities from all demonstrations. Original approach used in the paper."""
         summed_rewards = 0.0
@@ -207,8 +310,8 @@ class MetaworldSparseMultiMean(MetaworldSparseMultiBase):
         return reward
 
 class MetaworldSparseMultiMax(MetaworldSparseMultiBase):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28):
-        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28, demo_cache_path="demo_embeds.pt"):
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo, demo_cache_path)
     
     def compute_reward(self, video_embedding):
         """Take the maximum similarity from all demonstrations."""
@@ -240,8 +343,9 @@ class MetaworldSparseMultiMOM(MetaworldSparseMultiBase):
         num_demo=28,
         mom_groups=None,          # optional override for K
         mom_seed=None,            # optional seed for grouping reproducibility
+        demo_cache_path="demo_embeds.pt"
     ):
-        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo, demo_cache_path)
 
         # Sanity check
         assert len(self.targets) == self.num_demo, (
@@ -356,8 +460,9 @@ class MetaworldSparseMultiSequentialFixedBudget(MetaworldSparseMultiBase):
         human=True,
         num_demo=28,
         total_training_episodes=7813,   # rough estimate based on 1M steps / 128 steps per episode
+        demo_cache_path="demo_embeds.pt"
     ):
-        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo, demo_cache_path)
 
         assert len(self.targets) == self.num_demo, (
             f"Loaded {len(self.targets)} demos, expected {self.num_demo}."
@@ -381,9 +486,18 @@ class MetaworldSparseMultiSequentialFixedBudget(MetaworldSparseMultiBase):
             obs, _, terminated, truncated, info = out
             done = terminated or truncated
 
+        #self.past_observations.append(self.env.render()) # original, below is more efficient (only keeps every 4th frame since this would happen in preprocess_metaworld anyway)
         frame = self.env.render()
         if frame is not None:
-            self.past_observations.append(frame)
+            #crop to 250x250 as in preprocess_metaworld
+            center = 240, 320
+            h, w = (250, 250)
+            x = int(center[1] - w/2)
+            y = int(center[0] - h/2)
+            frame = frame[y:y+h, x:x+w]
+            #only keep every 4th frame
+            if self.counter % 4 == 0:
+                self.past_observations.append(frame)
 
         self.counter += 1
         t = self.counter / 128.0
@@ -391,7 +505,7 @@ class MetaworldSparseMultiSequentialFixedBudget(MetaworldSparseMultiBase):
             obs = np.concatenate([obs, np.array([t], dtype=np.float32)])
 
         if done:
-            frames = self.preprocess_metaworld(self.past_observations)
+            frames = self.preprocess_metaworld(self.past_observations, shorten=False, crop=False)  # already did frame skipping and cropping above
             video = th.from_numpy(frames)
 
             with th.no_grad():
@@ -413,9 +527,12 @@ class MetaworldSparseMultiSequentialFixedBudget(MetaworldSparseMultiBase):
     def reset(self):
         self.past_observations = []
         self.counter = 0
+        obs = self.env.reset()
+        if isinstance(obs, tuple):
+            obs = obs[0]
         if not self.time:
-            return self.env.reset()
-        return np.concatenate([self.env.reset(), np.array([0.0], dtype=np.float32)])
+            return obs
+        return np.concatenate([obs, np.array([0.0])])
 
 from collections import deque
 import numpy as np
@@ -444,8 +561,9 @@ class MetaworldSparseMultiCentroidPrototype(MetaworldSparseMultiBase):
         normalize_proto=True,
         normalize_rollout=True,
         eps=1e-8,
+        demo_cache_path="demo_embeds.pt"
     ):
-        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo, demo_cache_path)
 
         self.normalize_demos = bool(normalize_demos)
         self.normalize_proto = bool(normalize_proto)
@@ -498,8 +616,9 @@ class MetaworldSparseMultiSoftmaxSim(MetaworldSparseMultiBase):
         num_demo=28,
         temperature=1.0,
         center_sims=True,
+        demo_cache_path="demo_embeds.pt"
     ):
-        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo, demo_cache_path)
         self.temperature = float(temperature)
         assert self.temperature > 0, "temperature must be > 0"
         self.center_sims = bool(center_sims)
@@ -547,8 +666,9 @@ class MetaworldSparseMultiMostCentralDemo(MetaworldSparseMultiBase):
         num_demo=28,
         metric="cosine",
         eps=1e-8,
+        demo_cache_path="demo_embeds.pt"
     ):
-        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo, demo_cache_path)
 
         self.metric = str(metric).lower()
         assert self.metric in ("l2", "cosine")
@@ -600,11 +720,29 @@ def make_env(env_type, env_id, rank, seed=0):
     def _init():
         # env = KitchenMicrowaveHingeSlideV0()
         if env_type == "mean":
-            env = MetaworldSparseMultiMean(env_id=env_id, video_path="./gifs/custom/drawer-open-human", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+            env = MetaworldSparseMultiMean(env_id=env_id, 
+                                           video_path="./gifs/custom/drawer-open-human", 
+                                           time=True, 
+                                           rank=rank, 
+                                           human=True,
+                                           demo_cache_path=args.demo_cache,
+                                           ) # FOR VIDEO REWARD, set human=False for metaworld demo
         elif env_type == "max":
-            env = MetaworldSparseMultiMax(env_id=env_id, video_path="./gifs/custom/drawer-open-human", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+            env = MetaworldSparseMultiMax(env_id=env_id, 
+                                          video_path="./gifs/custom/drawer-open-human", 
+                                          time=True, 
+                                          rank=rank, 
+                                          human=True,
+                                          demo_cache_path=args.demo_cache,
+                                          ) # FOR VIDEO REWARD, set human=False for metaworld demo
         elif env_type == "mom":
-            env = MetaworldSparseMultiMOM(env_id=env_id, video_path="./gifs/custom/drawer-open-human", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+            env = MetaworldSparseMultiMOM(env_id=env_id, 
+                                          video_path="./gifs/custom/drawer-open-human", 
+                                          time=True, 
+                                          rank=rank, 
+                                          human=True,
+                                          demo_cache_path=args.demo_cache,
+                                          ) # FOR VIDEO REWARD, set human=False for metaworld demo
         # elif env_type == "sequential":
         #     env = MetaworldSparseMultiSequential(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True, num_demo=4, episodes_per_demo=250) # FOR VIDEO REWARD, set human=False for metaworld demo
         # elif env_type == "sparse_original":
@@ -618,6 +756,7 @@ def make_env(env_type, env_id, rank, seed=0):
                 human=True,
                 num_demo=28,
                 temperature=1.0,
+                demo_cache_path=args.demo_cache,
             )
 
         elif env_type == "centroid":
@@ -631,6 +770,7 @@ def make_env(env_type, env_id, rank, seed=0):
                 normalize_demos=False,
                 normalize_proto=True,
                 normalize_rollout=True, # normalize all for cosine similarity to centroid
+                demo_cache_path=args.demo_cache,
             )
 
         elif env_type == "central_demo":
@@ -642,6 +782,7 @@ def make_env(env_type, env_id, rank, seed=0):
                 human=True,
                 num_demo=28,
                 metric="cosine",
+                demo_cache_path=args.demo_cache,
             )
 
         elif env_type == "seq_fixed":
@@ -653,6 +794,7 @@ def make_env(env_type, env_id, rank, seed=0):
                 human=True,
                 num_demo=28,
                 total_training_episodes=7813,  # ≈ 1M env steps / 128 steps per episode
+                demo_cache_path=args.demo_cache,
             )
 
         else:
@@ -667,6 +809,20 @@ def main():
     global args
     global log_dir
     args = get_args()
+    human = True # USING HUMAN DEMONSTRATIONS, REMEMBER TO CHANGE IF USING METAWORLD DEMOS
+    # build cache if missing OR if explicitly requested
+    if args.build_demo_cache or (not os.path.exists(args.demo_cache)):
+        build_demo_cache(
+            demo_dir=args.demo_dir,
+            num_demo=args.num_demo,
+            human=human,
+            s3d_dict_path="s3d_dict.npy",
+            s3d_weights_path="s3d_howto100m.pth",
+            device="cpu",              # RoboCLIP-faithful
+            out_path=args.demo_cache,
+        )
+        if args.build_demo_cache:
+            return
     #env_id = "drawer-open-v2-goal-hidden"
     log_dir = f"metaworld/{args.env_id}_{args.env_type}{args.dir_add}"
     if not os.path.exists(log_dir):
