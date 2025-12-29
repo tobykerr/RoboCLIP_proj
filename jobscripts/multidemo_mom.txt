@@ -1,0 +1,27 @@
+#!/bin/bash -login
+#SBATCH -o %x.o%j
+#SBATCH -p gpuA             # use A100 80GB GPU
+#SBATCH -G 1                # use 1 GPU
+#SBATCH -t 1-0              # time limit of 1 day
+
+#SBATCH -n 1               # number of CPU host cores to use (1-12)
+#SBATCH --mem=64G          # set RAM needed (otherwise will be very low, since using only 1 CPU)
+
+module purge
+module load libs/cuda       # apparently CUDA libraries are needed?
+module load libs/gcc/glew/2.1.0
+
+conda activate roboclip
+export LD_LIBRARY_PATH=$HOME/.mujoco/mujoco210/bin:$LD_LIBRARY_PATH
+export MUJOCO_PY_MJKEY_PATH=$HOME/.mujoco/mjkey.txt
+export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
+export MUJOCO_GL=egl
+
+python metaworld_multidemos.py \
+  --env-type mom \
+  --env-id drawer-open-v2-goal-hidden \
+  --total-time-steps 1000000 \
+  --n-envs 8 \
+  --n-steps 128 \
+  --dir-add _mom28

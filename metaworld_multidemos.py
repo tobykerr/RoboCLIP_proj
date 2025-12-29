@@ -18,7 +18,7 @@ import PIL
 import os
 import seaborn as sns
 import matplotlib.pylab as plt
-from math import sqrt
+from math import sqrt, ceil
 
 from typing import Any, Dict
 
@@ -64,7 +64,7 @@ def get_args():
 
 
 class MetaworldSparseMultiBase(Env):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1):
+    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28):
         super(MetaworldSparseMultiBase,self)
         self.num_demo = num_demo
         door_open_goal_hidden_cls = ALL_V2_ENVIRONMENTS_GOAL_HIDDEN[env_id]
@@ -81,7 +81,7 @@ class MetaworldSparseMultiBase(Env):
         self.net = S3D('s3d_dict.npy', 512)
 
         # Load the model weights
-        # self.net.load_state_dict(th.load('s3d_howto100m.pth'))
+        self.net.load_state_dict(th.load('s3d_howto100m.pth'))
         # Evaluation mode
         self.net = self.net.eval()
         self.targets = []
@@ -89,18 +89,24 @@ class MetaworldSparseMultiBase(Env):
             for i in range(num_demo):
                 path = video_path+f"/{i+1}.gif" # assume gifs placed in folder specified by video_demo and are named 1.gif, 2.gif, ...
                 frames = readGif(path)
-                print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", len(frames))
-                print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", frames[0].shape)
+                # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", len(frames))
+                # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", frames[0].shape)
                 if human:
                     frames = self.preprocess_human_demo(frames)
                 else:
                     frames = self.preprocess_metaworld(frames)
                 if frames.shape[1]>3:
                     frames = frames[:,:3]
-                print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", frames.shape)
+                # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$", frames.shape)
                 video = th.from_numpy(frames)
                 video_output = self.net(video.float())
                 self.targets.append(video_output['video_embedding'])
+        
+        assert len(self.targets) == self.num_demo, f"Loaded {len(self.targets)} demos, expected {self.num_demo}"
+        if rank == 0:
+            print(f"[Init] env_id={env_id} | num_demo={self.num_demo} | loaded={len(self.targets)}")
+            print(f"[Init] obs_space={self.observation_space} | act_space={self.action_space}")
+            print(f"[Init] video_path={video_path} | human={human}")
 
         self.counter = 0
 
@@ -143,7 +149,12 @@ class MetaworldSparseMultiBase(Env):
         """Take a step in environment, collect frames, and compute reward at the end.
         Note: reward computation is to be implemented in subclasses.
         Note: if compute_reward should take more than just video_embedding, override step() in subclass accordingly."""
-        obs, _, done, info = self.env.step(action)
+        out = self.env.step(action)
+        if len(out) == 4:
+            obs, env_rew, done, info = out # robust to gym envs, got in a mess with this when setting up so adding this for safety
+        else:
+            obs, env_rew, terminated, truncated, info = out
+            done = terminated or truncated
         self.past_observations.append(self.env.render())
         self.counter += 1
         t = self.counter/128
@@ -182,20 +193,21 @@ class MetaworldSparseMultiBase(Env):
         return np.concatenate([self.env.reset(), np.array([0.0])])
 
 
-class MetaworldSparseMultiOriginalSum(MetaworldSparseMultiBase):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1):
+class MetaworldSparseMultiMean(MetaworldSparseMultiBase):
+    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28):
         super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
     
     def compute_reward(self, video_embedding):
         """Sum the similarities from all demonstrations. Original approach used in the paper."""
-        reward = 0.0
+        summed_rewards = 0.0
         for i in range(self.num_demo):
             similarity_matrix = th.matmul(self.targets[i], video_embedding.t())
-            reward += similarity_matrix.detach().numpy()[0][0]
+            summed_rewards += similarity_matrix.detach().numpy()[0][0]
+        reward = summed_rewards / self.num_demo
         return reward
 
 class MetaworldSparseMultiMax(MetaworldSparseMultiBase):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1):
+    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28):
         super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
     
     def compute_reward(self, video_embedding):
@@ -208,80 +220,373 @@ class MetaworldSparseMultiMax(MetaworldSparseMultiBase):
                 max_reward = reward
         return max_reward
 
+
 class MetaworldSparseMultiMOM(MetaworldSparseMultiBase):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1):
+    """
+    Median-of-means over *similarities* (scalar rewards), not embeddings.
+
+    Reward at episode end:
+      sims_i = <target_i, video_embedding>
+      split sims into K groups, take mean per group, reward = median(group_means)
+    """
+    def __init__(
+        self,
+        env_id,
+        text_string=None,
+        time=False,
+        video_path=None,
+        rank=0,
+        human=True,
+        num_demo=28,
+        mom_groups=None,          # optional override for K
+        mom_seed=None,            # optional seed for grouping reproducibility
+    ):
         super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
-        self.mom_embedding = self.find_mom_embedding()
 
-    def find_mom_embedding(self):
-        """Splits demos into K groups, computes mean of each group, and returns median of these means."""
-        N = self.num_demo
-        K = int(sqrt(N))
-        np.random.shuffle(self.targets)  # shuffle in-place
+        # Sanity check
+        assert len(self.targets) == self.num_demo, (
+            f"Loaded {len(self.targets)} demos, expected {self.num_demo}. "
+            f"Check video_path and filenames 1.gif..{self.num_demo}.gif"
+        )
 
-        groups = np.array_split(self.targets, K) # split into K groups
-        group_means = [np.mean(group, axis=0) for group in groups] # find mean of each group
-        
-        mom_embedding = np.median(np.stack(group_means), axis=0) # compute element-wise median across group means
-                                                                 # NOTE: should I use geomtric median? Will take longer (iteration needed) but is more robust.
-        
-        mom_embedding = th.tensor(mom_embedding) # NOTE: needed? Check later.
-        return mom_embedding
+        # Stack demo embeddings once: [N, D]
+        # (S3D returns [1, D] per demo; cat gives [N, D])
+        self.targets_mat = th.cat(self.targets, dim=0).detach().cpu()
 
-    def compute_reward(self, video_embedding):
-        """Compute reward using median-of-means embedding."""
-        similarity_matrix = th.matmul(self.mom_embedding, video_embedding.t())
-        reward = similarity_matrix.detach().numpy()[0][0]
-        return reward
+        self.N = self.targets_mat.shape[0]
+        self.D = self.targets_mat.shape[1]
 
-class MetaworldSparseMultiSequential(MetaworldSparseMultiBase):
-    def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=1, episodes_per_demo=1000):
-        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
-        self.episodes_per_demo = episodes_per_demo
-        self.current_demo_index = 0
-        self.episodes_run_for_current_demo = 0
+        # Choose number of groups K ~ sqrt(N)
+        if mom_groups is None:
+            self.K = max(1, int(sqrt(self.N)))
+        else:
+            self.K = int(mom_groups)
+            self.K = max(1, min(self.K, self.N))
+
+        # Make fixed random partition of indices into K groups
+        g = th.Generator(device="cpu")
+        if mom_seed is None:
+            # If you want reproducible partitions per-rank, use a deterministic seed like (12345 + rank)
+            mom_seed = 12345 + int(rank)
+        g.manual_seed(int(mom_seed))
+
+        perm = th.randperm(self.N, generator=g)
+        self.groups = th.tensor_split(perm, self.K)  # list of index tensors
+
+    def compute_reward(self, video_embedding: th.Tensor) -> float:
+        """
+        video_embedding: [1, D] (torch tensor)
+        returns: scalar float reward = MoM(similarities)
+        """
+        # Ensure targets are on same device/dtype as video_embedding
+        targets = self.targets_mat.to(device=video_embedding.device, dtype=video_embedding.dtype)
+
+        # Similarities for all demos: [N]
+        # targets: [N, D], video_embedding.t(): [D, 1] -> [N, 1] -> [N]
+        sims = (targets @ video_embedding.t()).squeeze(-1)
+
+        # Mean within each group, then median across groups
+        group_means = th.stack([sims[idx].mean() for idx in self.groups], dim=0)  # [K]
+        mom_sim = group_means.median()  # scalar tensor
+
+        return float(mom_sim.detach().cpu())
+
+# class MetaworldSparseMultiSequential(MetaworldSparseMultiBase):
+#     def __init__(self, env_id, text_string=None, time=False, video_path=None, rank=0, human=True, num_demo=28, episodes_per_demo=1000):
+#         super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+#         self.episodes_per_demo = episodes_per_demo
+#         self.current_demo_index = 0
+#         self.episodes_run_for_current_demo = 0
     
-    def compute_reward(self, video_embedding):
-        """Compute reward using sequential approach."""
-        similarity_matrix = th.matmul(self.targets[self.current_demo_index], video_embedding.t())
-        reward = similarity_matrix.detach().numpy()[0][0]
-        return reward
+#     def compute_reward(self, video_embedding):
+#         """Compute reward using sequential approach."""
+#         similarity_matrix = th.matmul(self.targets[self.current_demo_index], video_embedding.t())
+#         reward = similarity_matrix.detach().numpy()[0][0]
+#         return reward
     
-    def step(self, action):
-        """Take a step in environment, collect frames, and compute reward at the end.
-        Note: reward computation is to be implemented in subclasses.
-        Note: if compute_reward should take more than just video_embedding, override step() in subclass accordingly."""
-        obs, _, done, info = self.env.step(action)
-        self.past_observations.append(self.env.render())
+#     def step(self, action):
+#         """Take a step in environment, collect frames, and compute reward at the end.
+#         Note: reward computation is to be implemented in subclasses.
+#         Note: if compute_reward should take more than just video_embedding, override step() in subclass accordingly."""
+#         obs, _, done, info = self.env.step(action)
+#         self.past_observations.append(self.env.render())
 
-        if self.episodes_run_for_current_demo >= self.episodes_per_demo:
-            self.current_demo_index = min(self.current_demo_index + 1, self.num_demo - 1) # move to next demo, but don't exceed bounds. NOTE: last demo will be used for remaining episodes if total episodes exceed num_demo * episodes_per_demo
-            self.episodes_run_for_current_demo = 0
+#         if self.episodes_run_for_current_demo >= self.episodes_per_demo:
+#             self.current_demo_index = min(self.current_demo_index + 1, self.num_demo - 1) # move to next demo, but don't exceed bounds. NOTE: last demo will be used for remaining episodes if total episodes exceed num_demo * episodes_per_demo
+#             self.episodes_run_for_current_demo = 0
 
-        self.episodes_run_for_current_demo += 1
-        self.counter += 1
+#         self.episodes_run_for_current_demo += 1
+#         self.counter += 1
 
-        t = self.counter/128
+#         t = self.counter/128
 
-        if self.time:
-            obs = np.concatenate([obs, np.array([t])])
-        if done:
-            frames = self.preprocess_metaworld(self.past_observations)
+#         if self.time:
+#             obs = np.concatenate([obs, np.array([t])])
+#         if done:
+#             frames = self.preprocess_metaworld(self.past_observations)
             
         
         
-            video = th.from_numpy(frames)
-            # print("video.shape", video.shape)
-            # print(frames.shape)
-            video_output = self.net(video.float())
+#             video = th.from_numpy(frames)
+#             # print("video.shape", video.shape)
+#             # print(frames.shape)
+#             video_output = self.net(video.float())
 
-            video_embedding = video_output['video_embedding']
+#             video_embedding = video_output['video_embedding']
+
+#             reward = self.compute_reward(video_embedding)
+
+#             return obs, reward, done, info
+#         return obs, 0.0, done, info
+
+
+class MetaworldSparseMultiSequentialFixedBudget(MetaworldSparseMultiBase):
+    """
+    Use demo 0 for E episodes, then demo 1 for E episodes, etc.
+    Reward is exactly the RoboCLIP single-demo dot product against the current demo.
+    """
+
+    def __init__(
+        self,
+        env_id,
+        text_string=None,
+        time=False,
+        video_path=None,
+        rank=0,
+        human=True,
+        num_demo=28,
+        total_training_episodes=7813,   # rough estimate based on 1M steps / 128 steps per episode
+    ):
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+
+        assert len(self.targets) == self.num_demo, (
+            f"Loaded {len(self.targets)} demos, expected {self.num_demo}."
+        )
+
+        self.total_training_episodes = int(total_training_episodes)
+        self.episodes_per_demo = int(ceil(self.total_training_episodes / self.num_demo))
+
+        self.current_demo_index = 0
+        self.episodes_used_on_current_demo = 0
+
+    def compute_reward(self, video_embedding: th.Tensor) -> float:
+        similarity_matrix = th.matmul(self.targets[self.current_demo_index], video_embedding.t())
+        return float(similarity_matrix.detach().cpu().numpy()[0][0])
+
+    def step(self, action):
+        out = self.env.step(action)
+        if len(out) == 4:
+            obs, _, done, info = out
+        else:
+            obs, _, terminated, truncated, info = out
+            done = terminated or truncated
+
+        frame = self.env.render()
+        if frame is not None:
+            self.past_observations.append(frame)
+
+        self.counter += 1
+        t = self.counter / 128.0
+        if self.time:
+            obs = np.concatenate([obs, np.array([t], dtype=np.float32)])
+
+        if done:
+            frames = self.preprocess_metaworld(self.past_observations)
+            video = th.from_numpy(frames)
+
+            with th.no_grad():
+                video_output = self.net(video.float())
+            video_embedding = video_output["video_embedding"]
 
             reward = self.compute_reward(video_embedding)
 
+            # --- advance demo *per episode* ---
+            self.episodes_used_on_current_demo += 1
+            if self.episodes_used_on_current_demo >= self.episodes_per_demo:
+                self.current_demo_index = min(self.current_demo_index + 1, self.num_demo - 1)
+                self.episodes_used_on_current_demo = 0
+
             return obs, reward, done, info
+
         return obs, 0.0, done, info
-    
+
+    def reset(self):
+        self.past_observations = []
+        self.counter = 0
+        if not self.time:
+            return self.env.reset()
+        return np.concatenate([self.env.reset(), np.array([0.0], dtype=np.float32)])
+
+from collections import deque
+import numpy as np
+import torch as th
+
+class MetaworldSparseMultiCentroidPrototype(MetaworldSparseMultiBase):
+    """
+    Prototype / centroid approach:
+      proto = mean_i z_demo_i   (optionally normalizing)
+      reward = <proto, z_rollout>   (or cosine if normalize_proto + normalize_rollout)
+
+    Note: If you do not normalize anything, this is basically like "sum"
+    but collapsed into a single vector. If you normalize, it behaves differently.
+    With normalize_proto + normalize_rollout, it's cosine similarity to centroid.
+    """
+    def __init__(
+        self,
+        env_id,
+        text_string=None,
+        time=False,
+        video_path=None,
+        rank=0,
+        human=True,
+        num_demo=28,
+        normalize_demos=False,
+        normalize_proto=True,
+        normalize_rollout=True,
+        eps=1e-8,
+    ):
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+
+        self.normalize_demos = bool(normalize_demos)
+        self.normalize_proto = bool(normalize_proto)
+        self.normalize_rollout = bool(normalize_rollout)
+        self.eps = float(eps)
+
+        # Stack demo embeddings: [N, D]
+        demos = th.cat(self.targets, dim=0).detach().cpu()  # [N,D]
+
+        if self.normalize_demos:
+            demos = demos / (demos.norm(dim=1, keepdim=True) + self.eps)
+
+        proto = demos.mean(dim=0, keepdim=True)  # [1,D]
+
+        if self.normalize_proto:
+            proto = proto / (proto.norm(dim=1, keepdim=True) + self.eps)
+
+        self.prototype = proto  # CPU tensor [1,D]
+
+    def compute_reward(self, video_embedding: th.Tensor) -> float:
+        proto = self.prototype.to(device=video_embedding.device, dtype=video_embedding.dtype)  # [1,D]
+
+        v = video_embedding
+        if self.normalize_rollout:
+            v = v / (v.norm(dim=1, keepdim=True) + self.eps)
+
+        similarity_matrix = th.matmul(proto, v.t())  # [1,1]
+        reward = similarity_matrix.squeeze()
+
+        return float(reward.detach().cpu())
+
+class MetaworldSparseMultiSoftmaxSim(MetaworldSparseMultiBase):
+    """
+    Softmax attention over similarities (scalar attention).
+
+    sims_i = <z_demo_i, z_rollout>
+    w = softmax(sims / tau)
+    reward = sum_i w_i * sims_i
+
+    This is "soft" max: tau -> 0 approaches max; tau -> inf approaches mean(sim).
+    """
+    def __init__(
+        self,
+        env_id,
+        text_string=None,
+        time=False,
+        video_path=None,
+        rank=0,
+        human=True,
+        num_demo=28,
+        temperature=1.0,
+        center_sims=True,
+    ):
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+        self.temperature = float(temperature)
+        assert self.temperature > 0, "temperature must be > 0"
+        self.center_sims = bool(center_sims)
+
+        # Stack demo embeddings once: [N, D]
+        self.targets_mat = th.cat(self.targets, dim=0).detach().cpu()  # CPU is fine; moved to device per call
+
+    def compute_reward(self, video_embedding: th.Tensor) -> float:
+        # targets: [N, D] on same device/dtype
+        targets = self.targets_mat.to(device=video_embedding.device, dtype=video_embedding.dtype)
+
+        # sims: [N]
+        sims = (targets @ video_embedding.t()).squeeze(-1)
+
+        # stable softmax
+        logits = sims / self.temperature
+        if self.center_sims:
+            logits = logits - logits.max()
+
+        w = th.softmax(logits, dim=0)          # [N]
+        reward = (w * sims).sum()              # scalar
+
+        return float(reward.detach().cpu())
+
+class MetaworldSparseMultiMostCentralDemo(MetaworldSparseMultiBase):
+    """
+    Pick the most central demo (a medoid) among the set, then run single-demo reward.
+    Useful as baseline? (i.e. "best possible single demo approach")
+
+    Two metrics:
+      - metric="l2": pick i minimizing sum_j ||z_i - z_j||^2
+      - metric="cosine": pick i maximizing mean cosine similarity to others
+
+    Reward:
+      reward = <z_demo_medoid, z_rollout>  (exact RoboCLIP matmul form)
+    """
+    def __init__(
+        self,
+        env_id,
+        text_string=None,
+        time=False,
+        video_path=None,
+        rank=0,
+        human=True,
+        num_demo=28,
+        metric="cosine",
+        eps=1e-8,
+    ):
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo)
+
+        self.metric = str(metric).lower()
+        assert self.metric in ("l2", "cosine")
+        self.eps = float(eps)
+
+        # Stack demos: [N,D]
+        demos = th.cat(self.targets, dim=0).detach().cpu()  # [N,D]
+        N, D = demos.shape
+
+        if self.metric == "l2":
+            # Compute pairwise squared distances efficiently:
+            # ||a-b||^2 = ||a||^2 + ||b||^2 - 2 a·b
+            sq = (demos * demos).sum(dim=1, keepdim=True)     # [N,1]
+            gram = demos @ demos.t()                          # [N,N]
+            d2 = sq + sq.t() - 2.0 * gram                    # [N,N]
+            # numerical guard
+            d2 = th.clamp(d2, min=0.0)
+            score = d2.sum(dim=1)                             # [N] lower is better
+            medoid_idx = int(th.argmin(score).item())
+
+        else:  # cosine
+            demos_n = demos / (demos.norm(dim=1, keepdim=True) + self.eps)
+            sim = demos_n @ demos_n.t()                       # [N,N]
+            # exclude self-similarity if you want; doesn't matter much but cleaner:
+            sim = sim - th.eye(N)
+            score = sim.mean(dim=1)                           # [N] higher is better
+            medoid_idx = int(th.argmax(score).item())
+
+        self.medoid_idx = medoid_idx
+        self.medoid_embedding = demos[medoid_idx:medoid_idx+1]  # [1,D]
+
+        print(f"[MostCentralDemo] metric={self.metric} selected demo index {self.medoid_idx} (0-based index)")
+
+    def compute_reward(self, video_embedding: th.Tensor) -> float:
+        target = self.medoid_embedding.to(device=video_embedding.device, dtype=video_embedding.dtype)
+        similarity_matrix = th.matmul(target, video_embedding.t())
+        return float(similarity_matrix.detach().cpu().numpy()[0][0])
+
 
 def make_env(env_type, env_id, rank, seed=0):
     """
@@ -294,16 +599,62 @@ def make_env(env_type, env_id, rank, seed=0):
     """
     def _init():
         # env = KitchenMicrowaveHingeSlideV0()
-        if env_type == "sum":
-            env = MetaworldSparseMultiOriginalSum(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+        if env_type == "mean":
+            env = MetaworldSparseMultiMean(env_id=env_id, video_path="./gifs/custom/drawer-open-human", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
         elif env_type == "max":
-            env = MetaworldSparseMultiMax(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+            env = MetaworldSparseMultiMax(env_id=env_id, video_path="./gifs/custom/drawer-open-human", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
         elif env_type == "mom":
-            env = MetaworldSparseMultiMOM(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
-        elif env_type == "sequential":
-            env = MetaworldSparseMultiSequential(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True, num_demo=4, episodes_per_demo=250) # FOR VIDEO REWARD, set human=False for metaworld demo
+            env = MetaworldSparseMultiMOM(env_id=env_id, video_path="./gifs/custom/drawer-open-human", time=True, rank=rank, human=True) # FOR VIDEO REWARD, set human=False for metaworld demo
+        # elif env_type == "sequential":
+        #     env = MetaworldSparseMultiSequential(env_id=env_id, video_path="./gifs/human_opening_door", time=True, rank=rank, human=True, num_demo=4, episodes_per_demo=250) # FOR VIDEO REWARD, set human=False for metaworld demo
         # elif env_type == "sparse_original":
         #     env = KitchenEnvSparseOriginalReward(time=True)
+        elif env_type == "softmax_sim":
+            env = MetaworldSparseMultiSoftmaxSim(
+                env_id=env_id,
+                video_path="./gifs/custom/drawer-open-human",
+                time=True,
+                rank=rank,
+                human=True,
+                num_demo=28,
+                temperature=1.0,
+            )
+
+        elif env_type == "centroid":
+            env = MetaworldSparseMultiCentroidPrototype(
+                env_id=env_id,
+                video_path="./gifs/custom/drawer-open-human",
+                time=True,
+                rank=rank,
+                human=True,
+                num_demo=28,
+                normalize_demos=False,
+                normalize_proto=True,
+                normalize_rollout=True, # normalize all for cosine similarity to centroid
+            )
+
+        elif env_type == "central_demo":
+            env = MetaworldSparseMultiMostCentralDemo(
+                env_id=env_id,
+                video_path="./gifs/custom/drawer-open-human",
+                time=True,
+                rank=rank,
+                human=True,
+                num_demo=28,
+                metric="cosine",
+            )
+
+        elif env_type == "seq_fixed":
+            env = MetaworldSparseMultiSequentialFixedBudget(
+                env_id=env_id,
+                video_path="./gifs/custom/drawer-open-human",
+                time=True,
+                rank=rank,
+                human=True,
+                num_demo=28,
+                total_training_episodes=7813,  # ≈ 1M env steps / 128 steps per episode
+            )
+
         else:
             env = MetaworldDense(env_id=env_id, time=True, rank=rank)
         env = Monitor(env, os.path.join(log_dir, str(rank)))
@@ -316,7 +667,7 @@ def main():
     global args
     global log_dir
     args = get_args()
-    env_id = "drawer-open-v2-goal-hidden"
+    #env_id = "drawer-open-v2-goal-hidden"
     log_dir = f"metaworld/{args.env_id}_{args.env_type}{args.dir_add}"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
