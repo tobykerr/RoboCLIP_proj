@@ -25,8 +25,8 @@ python metaworld_multidemos.py \
   --total-time-steps 1000000 \
   --n-envs 8 \
   --n-steps 128 \
-  --demo-dir ./gifs/custom/drawer-open-human \
+  --demo-dir ./gifs/custom/drawer-open-human-single \
   --num-demo 1 \
-  --demo-cache ./gifs/custom/drawer-open-human/demo_embeds.pt \
+  --demo-cache ./gifs/custom/drawer-open-human-single/demo_embeds.pt \
   --demo-index 0 \
   --dir-add _baseline_mygif

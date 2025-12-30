@@ -7,7 +7,7 @@
 conda activate roboclip
 
 python tools/plot_reward_curve.py \
-  --run-dir metaworld/drawer-open-v2-goal-hidden_seq_fixed_seqfixed28 \
-  --out-dir results/seqfixed28/plots \
+  --run-dir metaworld/drawer-open-v2-goal-hidden_max_max28 \
+  --out-dir results/max28/new_plots \
   --n-envs 8 \
   --combined
