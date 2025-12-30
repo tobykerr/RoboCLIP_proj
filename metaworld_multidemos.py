@@ -131,9 +131,11 @@ def get_args():
     parser.add_argument("--demo-dir", type=str, default="./gifs/custom/drawer-open-human")
     parser.add_argument("--num-demo", type=int, default=28)
     parser.add_argument("--demo-cache", type=str, default="demo_embeds.pt",
-                    help="Path to saved demo embeddings .pt")
+                        help="Path to saved demo embeddings .pt")
     parser.add_argument("--build-demo-cache", action="store_true",
                         help="If set, build demo cache then exit.")
+    parser.add_argument("--demo-index", type=int, default=0,
+                        help="0-based demo index for single_demo baseline")
 
 
     args = parser.parse_args()
@@ -707,6 +709,55 @@ class MetaworldSparseMultiMostCentralDemo(MetaworldSparseMultiBase):
         similarity_matrix = th.matmul(target, video_embedding.t())
         return float(similarity_matrix.detach().cpu().numpy()[0][0])
 
+class MetaworldSparseSingleDemoFromCache(MetaworldSparseMultiBase):
+    """
+    Single-demo RoboCLIP baseline, but using the demo cache + your efficient frame capture.
+    Reward at episode end:
+        reward = <z_demo_k, z_rollout>
+    where demo_k is chosen by demo_index (0-based).
+    """
+
+    def __init__(
+        self,
+        env_id,
+        text_string=None,
+        time=False,
+        video_path=None,
+        rank=0,
+        human=True,
+        num_demo=28,
+        demo_index=0,                 # 0-based index into cached demos
+        demo_cache_path="demo_embeds.pt",
+    ):
+        super().__init__(
+            env_id=env_id,
+            text_string=text_string,
+            time=time,
+            video_path=video_path,
+            rank=rank,
+            human=human,
+            num_demo=num_demo,
+            demo_cache_path=demo_cache_path,
+        )
+        self.demo_index = int(demo_index)
+        assert 0 <= self.demo_index < self.num_demo, (
+            f"demo_index={self.demo_index} out of range for num_demo={self.num_demo}"
+        )
+
+        # Pick the single target embedding once (CPU tensor [1,D])
+        # self.targets is a list of [1,D] tensors built from targets_mat
+        self.target = self.targets[self.demo_index].detach().cpu()
+
+        if rank == 0:
+            print(f"[SingleDemoBaseline] Using demo_index={self.demo_index} (0-based)")
+
+    def compute_reward(self, video_embedding: th.Tensor) -> float:
+        # Match RoboCLIP structure: dot product (no normalization unless S3D already implies it)
+        target = self.target.to(device=video_embedding.device, dtype=video_embedding.dtype)  # [1,D]
+        sim = th.matmul(target, video_embedding.t())  # [1,1]
+        return float(sim.detach().cpu().numpy()[0][0])
+
+
 
 def make_env(env_type, env_id, rank, seed=0):
     """
@@ -794,6 +845,18 @@ def make_env(env_type, env_id, rank, seed=0):
                 human=True,
                 num_demo=28,
                 total_training_episodes=7813,  # ≈ 1M env steps / 128 steps per episode
+                demo_cache_path=args.demo_cache,
+            )
+
+        elif env_type == "single_demo":
+            env = MetaworldSparseSingleDemoFromCache(
+                env_id=env_id,
+                video_path=args.demo_dir,          # directory containing 1.gif..N.gif (used for cache meta only)
+                time=True,
+                rank=rank,
+                human=True,
+                num_demo=args.num_demo,
+                demo_index=args.demo_index,
                 demo_cache_path=args.demo_cache,
             )
 
