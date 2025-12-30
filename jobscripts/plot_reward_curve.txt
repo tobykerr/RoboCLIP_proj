@@ -1,0 +1,13 @@
+#!/bin/bash -login
+#SBATCH -o %x.o%j
+
+#SBATCH -p serial             # use A100 80GB GPU
+#SBATCH -t 10            # time limit of 1 day
+
+conda activate roboclip
+
+python tools/plot_reward_curve.py \
+  --run-dir metaworld/drawer-open-v2-goal-hidden_seq_fixed_seqfixed28 \
+  --out-dir results/seqfixed28/plots \
+  --n-envs 8 \
+  --combined

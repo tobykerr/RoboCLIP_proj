@@ -1,6 +1,14 @@
 #!/bin/bash -login
-#SBATCH -p serial             # 1-core
-#SBATCH -t 5              # 5 mins
+#SBATCH -p gpuA             # use A100 80GB GPU
+#SBATCH -G 1                # use 1 GPU
+#SBATCH -t 5             # time limit of 1 day
+
+#SBATCH -n 10               # number of CPU host cores to use (1-12)
+#SBATCH --mem=64G          # set RAM needed (otherwise will be very low, since using only 1 CPU)
+
+module purge
+module load libs/cuda       # apparently CUDA libraries are needed?
+module load libs/gcc/glew/2.1.0
 
 conda activate roboclip
 export LD_LIBRARY_PATH=$HOME/.mujoco/mujoco210/bin:$LD_LIBRARY_PATH
@@ -9,4 +17,4 @@ export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 export MUJOCO_GL=egl
 
-python tools/run.py   --model metaworld/door-open-v2-goal-hidden_sparse_learntresult_replication0/trained.zip   --env-id door-open-v2-goal-hidden   --outfile runs/rollout.gif   --max-steps 10000
+python tools/run.py   --model metaworld/drawer-open-v2-goal-hidden_max_max28/best_model.zip   --env-id drawer-open-v2-goal-hidden   --outfile results/max28   --max-steps 20000

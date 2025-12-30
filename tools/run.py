@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True,
                         help="Path to best_model.zip")
-    parser.add_argument("--env-id", type=str, default="door-open-v2-goal-hidden",
+    parser.add_argument("--env-id", type=str, default="drawer-open-v2-goal-hidden",
                         help="MetaWorld environment ID")
     parser.add_argument("--max-steps", type=int, default=500,
                         help="Max episode length")
