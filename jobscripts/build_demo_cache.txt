@@ -1,13 +1,11 @@
 #!/bin/bash -login
-#SBATCH -o %x.o%j
-#SBATCH --output stdout-%j.log # stdout
-#SBATCH --error stderr-%j.log #stderr
+#SBATCH -o slurm_logs/%x.o%j
 
 #SBATCH -p gpuA             # use A100 80GB GPU
 #SBATCH -G 1                # use 1 GPU
-#SBATCH -t 50             # time limit of 1 day
+#SBATCH -t 10             # time limit of 1 day
 
-#SBATCH -n 10               # number of CPU host cores to use (1-12)
+#SBATCH -n 1               # number of CPU host cores to use (1-12)
 #SBATCH --mem=64G          # set RAM needed (otherwise will be very low, since using only 1 CPU)
 
 module purge
@@ -22,7 +20,19 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 export MUJOCO_GL=egl
 
 python metaworld_multidemos.py \
-  --demo-dir ./gifs/custom/drawer-open-human-single \
-  --num-demo 1 \
-  --demo-cache ./gifs/custom/drawer-open-human-single/demo_embeds.pt \
+  --demo-dir ./gifs/custom/drawer-open-human-split/reach \
+  --num-demo 25 \
+  --demo-cache ./gifs/custom/drawer-open-human-split/reach/demo_embeds.pt \
+  --build-demo-cache
+
+python metaworld_multidemos.py \
+  --demo-dir ./gifs/custom/drawer-open-human-split/grasp \
+  --num-demo 25 \
+  --demo-cache ./gifs/custom/drawer-open-human-split/grasp/demo_embeds.pt \
+  --build-demo-cache
+
+python metaworld_multidemos.py \
+  --demo-dir ./gifs/custom/drawer-open-human-split/pull \
+  --num-demo 25 \
+  --demo-cache ./gifs/custom/drawer-open-human-split/pull/demo_embeds.pt \
   --build-demo-cache

@@ -134,6 +134,44 @@ def plot_eval_mean_with_std_band(timesteps, results, out_dir, fname, title_suffi
     plt.legend()
     return savefig(out_dir, fname)
 
+def plot_eval_mean_with_max_marker(timesteps, results, out_dir, fname):
+    eval_mean = results.mean(axis=1)
+
+    # Find maximum
+    max_idx = int(np.argmax(eval_mean))
+    max_t = timesteps[max_idx]
+    max_val = eval_mean[max_idx]
+
+    plt.figure()
+    plt.plot(timesteps, eval_mean, color=EVAL_COLOR, label="mean eval reward")
+
+    # Red marker at maximum
+    plt.scatter(
+        [max_t], [max_val],
+        color="red",
+        zorder=5,
+        label=f"max = {max_val:.1f}"
+    )
+
+    # Text annotation (slightly offset)
+    plt.annotate(
+        f"{max_val:.1f}",
+        xy=(max_t, max_val),
+        xytext=(5, 5),
+        textcoords="offset points",
+        color="red",
+        fontsize=9,
+        weight="bold"
+    )
+
+    plt.xlabel("Training timesteps")
+    plt.ylabel("Eval mean reward (dense env reward)")
+    plt.title("Dense eval reward (mean) with maximum marked")
+    plt.legend()
+
+    return savefig(out_dir, fname)
+
+
 
 def main():
     ap = argparse.ArgumentParser(
@@ -150,7 +188,7 @@ def main():
                     help="Path to evaluations.npz. Default: <run-dir>/evaluations.npz")
 
     # Rolling mean is only used for the *separate* rolling-mean-only plots you requested
-    ap.add_argument("--train-rolling-window", default=50, type=int,
+    ap.add_argument("--train-rolling-window", default=150, type=int,
                     help="Rolling window for RoboCLIP rolling-mean-only plots (episodes).")
 
     ap.add_argument("--also-plot-eval-monitor-dense", action="store_true",
@@ -189,7 +227,7 @@ def main():
         )
 
         # Mean ± std band (this is your “± std bars” request, but as a band—more readable)
-        plot_eval_mean_with_std_band(
+        plot_eval_mean_with_max_marker(
             timesteps, results,
             out_dir=out_dir,
             fname="eval_dense_mean_pm_std_vs_timesteps.png"

@@ -7,7 +7,7 @@
 conda activate roboclip
 
 python tools/plot_reward_curve.py \
-  --run-dir metaworld/drawer-open-v2-goal-hidden_max_max28 \
-  --out-dir results/max28/new_plots \
+  --run-dir metaworld/drawer-open-v2-goal-hidden_max_grasp_max25_detinit \
+  --out-dir results/subtasks_max25/grasp/plots_tightinit_second \
   --n-envs 8 \
   --combined

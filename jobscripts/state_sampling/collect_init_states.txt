@@ -2,9 +2,9 @@
 #SBATCH -o slurm_logs/%x.o%j
 #SBATCH -p gpuA             # use A100 80GB GPU
 #SBATCH -G 1                # use 1 GPU
-#SBATCH -t 3-0              # time limit of 1 day
+#SBATCH -t 40             # time limit of 1 day
 
-#SBATCH -n 1               # number of CPU host cores to use (1-12)
+#SBATCH -n 10               # number of CPU host cores to use (1-12)
 #SBATCH --mem=64G          # set RAM needed (otherwise will be very low, since using only 1 CPU)
 
 module purge
@@ -18,4 +18,4 @@ export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 export MUJOCO_GL=egl
 
-python metaworld_envs.py --env-type sparse_learnt --env-id drawer-open-v2-goal-hidden --dir-add RR_drawer_open_theirgif
+python tools/collect_init_states.py

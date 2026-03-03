@@ -1,4 +1,6 @@
 #!/bin/bash -login
+#SBATCH -o slurm_logs/%x.o%j
+
 #SBATCH -p gpuA             # use A100 80GB GPU
 #SBATCH -G 1                # use 1 GPU
 #SBATCH -t 5             # time limit of 1 day
@@ -17,4 +19,9 @@ export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 export MUJOCO_GL=egl
 
-python tools/run.py   --model metaworld/drawer-open-v2-goal-hidden_max_max28/best_model.zip   --env-id drawer-open-v2-goal-hidden   --outfile results/max28   --max-steps 20000
+python tools/run.py \
+  --model metaworld/drawer-open-v2-goal-hidden_max_grasp_max25_detinit/best_model.zip \
+  --env-id drawer-open-v2-goal-hidden \
+  --max-steps 128 \
+  --init-states results/subtasks_max25/grasp/init_states_tight_second.pkl \
+  --outfile results/subtasks_max25/grasp/grasp_from_tightinit_second.gif
