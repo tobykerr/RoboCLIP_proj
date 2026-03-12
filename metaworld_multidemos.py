@@ -18,6 +18,7 @@ import PIL
 import os
 import seaborn as sns
 import matplotlib.pylab as plt
+import pickle
 from math import sqrt, ceil
 
 from typing import Any, Dict
@@ -71,6 +72,29 @@ def build_demo_cache(
         frames = np.array(frames)[None, ...]          # [1,T,H,W,C]
         frames = frames.transpose(0, 4, 1, 2, 3)      # [1,C,T,H,W]
         return frames
+    # def preprocess_human(frames, out_size=250): # attempt to fix shape bug
+    #     fixed = []
+    #     for f in frames:
+    #         # Ensure numpy RGB
+    #         if not isinstance(f, np.ndarray):
+    #             f = np.array(f)
+
+    #         # Handle grayscale / RGBA
+    #         if f.ndim == 2:
+    #             f = np.stack([f, f, f], axis=-1)
+    #         if f.shape[-1] > 3:
+    #             f = f[..., :3]
+
+    #         # Force spatial size
+    #         if f.shape[0] != out_size or f.shape[1] != out_size:
+    #             f = cv2.resize(f, (out_size, out_size), interpolation=cv2.INTER_AREA)
+
+    #         fixed.append(f)
+
+    #     frames = np.array(fixed)[None, ...]          # [1,T,H,W,C]
+    #     frames = frames.transpose(0, 4, 1, 2, 3)      # [1,C,T,H,W]
+    #     return frames
+
 
     def preprocess_metaworld(frames, shorten=True, crop=True):
         frames = np.array(frames)
@@ -95,6 +119,12 @@ def build_demo_cache(
             if frames.shape[1] > 3:
                 frames = frames[:, :3]
             video = th.from_numpy(frames).float().to(dev)
+            ############ bug fix: S3D expects even number of frames, but some demos have odd number (they shouldn't!). Drop last frame if odd. 
+            # video: (B,C,T,H,W)
+            T = video.shape[2]
+            if T % 2 == 1:
+                video = video[:, :, :-1]   # drop last frame (or duplicate one to make it even)
+            ############ bug fix end
             out = net(video)
             z = out["video_embedding"].detach().cpu()     # [1,D]
             embeds.append(z)
@@ -136,6 +166,8 @@ def get_args():
                         help="If set, build demo cache then exit.")
     parser.add_argument("--demo-index", type=int, default=0,
                         help="0-based demo index for single_demo baseline")
+    parser.add_argument("--init-states", type=str, default=None)
+    parser.add_argument("--use-init-states", action="store_true")
 
 
     args = parser.parse_args()
@@ -757,9 +789,417 @@ class MetaworldSparseSingleDemoFromCache(MetaworldSparseMultiBase):
         sim = th.matmul(target, video_embedding.t())  # [1,1]
         return float(sim.detach().cpu().numpy()[0][0])
 
+class MetaworldSparseMultiMaxWithDecayingCredit(MetaworldSparseMultiBase):
+    """
+    Like MetaworldSparseMultiMax (max over demos), BUT instead of only using
+    the final-trajectory embedding once at episode end, we compute multiple
+    "checkpoint" embeddings during the episode and take a *decay-weighted*
+    sum of their max-similarities.
+
+    Intuition (credit assignment):
+      - earlier checkpoint rewards get *less* weight
+      - later checkpoint rewards get *more* weight
+    This helps reduce "reach-only" local optima, because what happens late
+    in the episode dominates the return.
+
+    Notes:
+    - This still returns the reward at episode end (sparse per-episode), to
+      match your existing approach.
+    - It does extra S3D forward passes during an episode (at checkpoints).
+      Control cost via `checkpoint_every_env_steps`.
+    """
+
+    def __init__(
+        self,
+        env_id,
+        text_string=None,
+        time=False,
+        video_path=None,
+        rank=0,
+        human=True,
+        num_demo=28,
+        demo_cache_path="demo_embeds.pt",
+        checkpoint_every_env_steps=32,   # how often (in env steps) to score partial trajectory
+        decay_lambda=1.0,               # larger => later checkpoints dominate more
+        normalize_weights=True,
+        min_frames_for_checkpoint=8,    # min stored frames before first checkpoint (after your /4 sampling)
+    ):
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo, demo_cache_path)
+
+        self.checkpoint_every_env_steps = int(checkpoint_every_env_steps)
+        self.decay_lambda = float(decay_lambda)
+        self.normalize_weights = bool(normalize_weights)
+        self.min_frames_for_checkpoint = int(min_frames_for_checkpoint)
+
+        self._checkpoint_scores = []  # list of floats (max similarity at each checkpoint)
+
+    def reset(self):
+        obs = super().reset()
+        self._checkpoint_scores = []
+        return obs
+
+    def _max_similarity(self, video_embedding: th.Tensor) -> float:
+        """Compute max over demo similarities, identical to MetaworldSparseMultiMax."""
+        max_reward = -float("inf")
+        # self.targets is list of [1,D] CPU tensors; move target to device of embedding
+        for i in range(self.num_demo):
+            target = self.targets[i].to(device=video_embedding.device, dtype=video_embedding.dtype)
+            sim = th.matmul(target, video_embedding.t())  # [1,1]
+            val = float(sim.detach().cpu().numpy()[0][0])
+            if val > max_reward:
+                max_reward = val
+        return max_reward
+
+    def _maybe_score_checkpoint(self):
+        """
+        Compute a checkpoint score from the frames collected so far.
+        Uses the *current* partial trajectory frames.
+        """
+        # need at least some frames after your /4 subsampling
+        if len(self.past_observations) < self.min_frames_for_checkpoint:
+            return
+
+        frames = self.preprocess_metaworld(
+            self.past_observations,
+            shorten=False,   # already did /4 skipping during capture
+            crop=False,      # already cropped during capture
+        )
+        video = th.from_numpy(frames).float()
+
+        # S3D expects even number of frames T; drop last if odd
+        T = video.shape[2]
+        if T % 2 == 1:
+            video = video[:, :, :-1]
+
+        with th.no_grad():
+            out = self.net(video)
+            z = out["video_embedding"]  # [1,D]
+
+        score = self._max_similarity(z)
+        self._checkpoint_scores.append(score)
+
+    def _decay_weighted_sum(self, scores):
+        """
+        scores: list[float] length K
+        weights: exp(-lambda * (K-1-i)) so last index gets weight 1.0
+        """
+        K = len(scores)
+        if K == 0:
+            return 0.0
+
+        # weights increasing toward the end
+        weights = np.array([np.exp(-self.decay_lambda * (K - 1 - i)) for i in range(K)], dtype=np.float64)
+        if self.normalize_weights:
+            weights = weights / (weights.sum() + 1e-12)
+
+        return float((weights * np.array(scores, dtype=np.float64)).sum())
+
+    def step(self, action):
+        out = self.env.step(action)
+        if len(out) == 4:
+            obs, env_rew, done, info = out
+        else:
+            obs, env_rew, terminated, truncated, info = out
+            done = terminated or truncated
+
+        frame = self.env.render()
+        if frame is not None:
+            # crop to 250x250 as in preprocess_metaworld
+            center = 240, 320
+            h, w = (250, 250)
+            x = int(center[1] - w / 2)
+            y = int(center[0] - h / 2)
+            frame = frame[y:y + h, x:x + w]
+
+            # only keep every 4th frame
+            if self.counter % 4 == 0:
+                self.past_observations.append(frame)
+
+        self.counter += 1
+        t = self.counter / 128.0
+        if self.time:
+            obs = np.concatenate([obs, np.array([t], dtype=np.float32)])
+
+        # ---- checkpoint scoring (before terminal) ----
+        if (not done) and (self.checkpoint_every_env_steps > 0):
+            if self.counter % self.checkpoint_every_env_steps == 0:
+                self._maybe_score_checkpoint()
+
+        if done:
+            # always score final checkpoint too
+            self._maybe_score_checkpoint()
+
+            # decay-weighted credit assignment across checkpoints
+            reward = self._decay_weighted_sum(self._checkpoint_scores)
+
+            return obs, reward, done, info
+
+        return obs, 0.0, done, info
+
+from collections import deque
+import numpy as np
+import torch as th
+
+class MetaworldSparseMultiMaxWithTrueDecayingCredit(MetaworldSparseMultiBase):
+    """
+    Paper-faithful (as much as practical in Gym/SB3):
+
+    - Compute S3D similarity on 32-frame clips.
+    - Every `chunk_len` env steps, compute clip score S.
+    - Assign per-step rewards over a 32-step span using decaying credit weights.
+
+    Important implementation detail:
+    - We can't retroactively change rewards for the *previous* 32 steps in Gym.
+      So we emit the 32 weighted rewards over the *next* 32 steps (1-chunk delay).
+      This is the closest faithful mechanism without modifying SB3 internals.
+    """
+
+    def __init__(
+        self,
+        env_id,
+        text_string=None,
+        time=False,
+        video_path=None,
+        rank=0,
+        human=True,
+        num_demo=28,
+        demo_cache_path="demo_embeds.pt",
+        chunk_len=32,          # 32-step chunks (paper uses 32-frame clips)
+        decay_lambda=0.15,     # decay strength within the 32-step credit assignment
+        normalize_weights=True,
+        crop_center=(240, 320),
+        crop_hw=(250, 250),
+    ):
+        super().__init__(env_id, text_string, time, video_path, rank, human, num_demo, demo_cache_path)
+
+        self.chunk_len = int(chunk_len)
+        assert self.chunk_len > 0
+
+        self.decay_lambda = float(decay_lambda)
+        self.normalize_weights = bool(normalize_weights)
+
+        self.crop_center = crop_center
+        self.crop_hw = crop_hw
+
+        # Store last 32 frames (one per env step) for clip embedding
+        self._clip_frames = deque(maxlen=self.chunk_len)
+
+        # Rewards to emit step-by-step (the weighted credit sequence)
+        self._pending_step_rewards = deque()
+
+        # Pre-stack demo embeddings for speed: [N,D] on CPU
+        # self.targets is list of [1,D] CPU tensors created from cache
+        self._targets_mat = th.cat(self.targets, dim=0).detach().cpu()  # [N,D]
+
+        # Precompute decay weights for within-chunk credit assignment
+        # weights increase toward the end of the chunk
+        # w[i] corresponds to credit for step i in the chunk (i=0 early, i=31 late)
+        i = np.arange(self.chunk_len, dtype=np.float64)
+        # earlier gets exp(-lambda*(31-i)), so i=31 => exp(0)=1 (largest)
+        w = np.exp(-self.decay_lambda * (self.chunk_len - 1 - i))
+        if self.normalize_weights:
+            w = w / (w.sum() + 1e-12)
+        self._credit_weights = w.astype(np.float32)  # shape [chunk_len]
+
+    def reset(self):
+        obs = super().reset()
+        self._clip_frames.clear()
+        self._pending_step_rewards.clear()
+        return obs
+
+    def _crop_frame(self, frame: np.ndarray) -> np.ndarray:
+        cy, cx = self.crop_center
+        h, w = self.crop_hw
+        x = int(cx - w / 2)
+        y = int(cy - h / 2)
+        return frame[y:y+h, x:x+w]
+
+    def _compute_clip_score_max(self) -> float:
+        """
+        Build a (1,C,T,H,W) tensor from the last `chunk_len` frames (T=32),
+        run S3D, then compute max_{demo} <z_demo, z_clip>.
+        """
+        assert len(self._clip_frames) == self.chunk_len
+
+        frames = np.array(self._clip_frames, dtype=np.uint8)  # [T,H,W,C]
+        frames = frames[None, ...]                             # [1,T,H,W,C]
+        frames = frames.transpose(0, 4, 1, 2, 3)              # [1,C,T,H,W]
+        video = th.from_numpy(frames).float()                  # float32
+
+        # S3D expects even T; T=32 ok, but keep the guard
+        T = video.shape[2]
+        if T % 2 == 1:
+            video = video[:, :, :-1]
+
+        with th.no_grad():
+            out = self.net(video)
+            z = out["video_embedding"]  # [1,D]
+
+        # Compute max similarity over demos
+        targets = self._targets_mat.to(device=z.device, dtype=z.dtype)  # [N,D]
+        sims = (targets @ z.t()).squeeze(-1)  # [N]
+        return float(sims.max().detach().cpu())
+
+    def step(self, action):
+        out = self.env.step(action)
+        if len(out) == 4:
+            obs, env_rew, done, info = out
+        else:
+            obs, env_rew, terminated, truncated, info = out
+            done = terminated or truncated
+
+        # Capture 1 cropped frame per env step (NO frame skipping for clip reward)
+        frame = self.env.render()
+        if frame is not None:
+            frame = self._crop_frame(frame)
+            self._clip_frames.append(frame)
+
+        self.counter += 1
+        t = self.counter / 128.0
+        if self.time:
+            obs = np.concatenate([obs, np.array([t], dtype=np.float32)])
+
+        # Emit pending step reward if available; otherwise 0
+        step_reward = float(self._pending_step_rewards.popleft()) if len(self._pending_step_rewards) > 0 else 0.0
+
+        # At end of each chunk (every 32 env steps), compute clip score and enqueue 32 weighted rewards
+        if (self.counter % self.chunk_len == 0) and (len(self._clip_frames) == self.chunk_len):
+            clip_score = self._compute_clip_score_max()
+            # enqueue the decayed credit weights * clip_score as next 32 step rewards
+            weighted = (self._credit_weights * clip_score).tolist()
+            self._pending_step_rewards.extend(weighted)
+
+        if done:
+            # On termination, if we have rewards still pending, pay them out now so the return isn't lost
+            if len(self._pending_step_rewards) > 0:
+                step_reward += float(np.sum(np.array(self._pending_step_rewards, dtype=np.float32)))
+                self._pending_step_rewards.clear()
+            return obs, step_reward, done, info
+
+        return obs, step_reward, done, info
+
+def unwrap_to_base_with_sim(e, max_depth=30):
+    cur = e
+    for _ in range(max_depth):
+        if hasattr(cur, "sim"):
+            return cur
+        if hasattr(cur, "env"):
+            cur = cur.env
+        else:
+            break
+    return cur
+
+def unwrap_to_env_with_get_obs(e, max_depth=30):
+    cur = e
+    for _ in range(max_depth):
+        if hasattr(cur, "_get_obs"):
+            return cur
+        if hasattr(cur, "env"):
+            cur = cur.env
+        else:
+            break
+    return None
+
+class InitialStateResetWrapper(gym.Wrapper):
+    """
+    On reset(), sample a saved mujoco_py state (MjSimState) from a .pkl file
+    and restore it into the underlying MuJoCo sim.
+
+    Designed to wrap your MetaworldDense/MetaworldSparse wrappers.
+
+    Notes:
+    - Assumes mujoco_py backend (has `.sim`).
+    - Resets the time channel to 0.0 (fresh subtask episode).
+    """
+
+    def __init__(self, env, init_states_path: str, seed: int = 0):
+        super().__init__(env)
+        self.init_states_path = init_states_path
+        self.rng = np.random.default_rng(seed)
+
+        if not os.path.exists(init_states_path):
+            raise FileNotFoundError(f"init_states_path not found: {init_states_path}")
+
+        with open(init_states_path, "rb") as f:
+            payload = pickle.load(f)
+
+        self.states = payload.get("states", [])
+        if len(self.states) == 0:
+            raise ValueError(f"No states found in: {init_states_path}")
+
+        # Your MetaworldDense sets time=True and appends a scalar to obs.
+        # We'll detect whether the wrapped env is using the time channel by checking obs space shape.
+        self._uses_time = False
+        try:
+            # If env adds time, obs dimension is base_dim + 1
+            self._uses_time = True  # in your code you use time=True everywhere during training
+        except Exception:
+            pass
+
+    def _get_base_obs(self):
+        """
+        Return observation from the underlying MetaWorld env after restoring state.
+        We try a few common methods.
+        """
+        base = unwrap_to_env_with_get_obs(self.env)
+        if base is None:
+            raise AttributeError("Could not find an env with _get_obs() method after unwrapping. Checked up to max_depth.")
+        return base._get_obs()
+
+        # # MetaWorld envs typically expose _get_obs()
+        # if hasattr(base, "_get_obs"):
+        #     return base._get_obs()
+
+        # # Sometimes it's on the inner env rather than the sim-holder
+        # if hasattr(base, "env") and hasattr(base.env, "_get_obs"):
+        #     return base.env._get_obs()
+
+        # raise AttributeError(
+        #     "Could not find a method to get observation after state restore. "
+        #     "Tried base._get_obs and base.env._get_obs."
+        # )
+
+    def reset(self, **kwargs):
+        # 1) normal reset to initialise wrapper bookkeeping
+        obs = self.env.reset(**kwargs)
+
+        # Reset your wrapper's timestep counter if it exists
+        if hasattr(self.env, "counter"):
+            self.env.counter = 0
+
+        # 2) sample a saved state
+        sample = self.states[self.rng.integers(0, len(self.states))]
+        mj_state = sample["mj_state"]
+
+        # 3) restore mujoco_py sim state
+        base = unwrap_to_base_with_sim(self.env)
+        if not hasattr(base, "sim"):
+            raise AttributeError(f"After unwrapping, base env has no .sim: {type(base)}")
+
+        sim = base.sim
+        sim.set_state(mj_state)
+        sim.forward()
+
+        # Optional: restore extra bookkeeping if you ever save it
+        extra = sample.get("extra", None)
+        if isinstance(extra, dict) and extra:
+            # Usually these won't exist on your wrapper, but keep the hook
+            for k, v in extra.items():
+                if hasattr(self.env, k):
+                    setattr(self.env, k, v)
+
+        # 4) return correct obs
+        base_obs = self._get_base_obs()
+
+        # If your wrapper uses a time channel, append 0.0
+        # (In your MetaworldDense.reset() you do exactly this.)
+        if isinstance(obs, np.ndarray) and obs.shape[-1] == base_obs.shape[-1] + 1:
+            return np.concatenate([base_obs, np.array([0.0], dtype=base_obs.dtype)])
+        else:
+            return base_obs
 
 
-def make_env(env_type, env_id, rank, seed=0):
+def make_env(env_type, env_id, rank, num_demo, seed=0, use_init_state=False):
     """
     Utility function for multiprocessed env.
 
@@ -776,6 +1216,7 @@ def make_env(env_type, env_id, rank, seed=0):
                                            time=True, 
                                            rank=rank, 
                                            human=True,
+                                           num_demo=num_demo,
                                            demo_cache_path=args.demo_cache,
                                            ) # FOR VIDEO REWARD, set human=False for metaworld demo
         elif env_type == "max":
@@ -784,6 +1225,7 @@ def make_env(env_type, env_id, rank, seed=0):
                                           time=True, 
                                           rank=rank, 
                                           human=True,
+                                          num_demo=num_demo,
                                           demo_cache_path=args.demo_cache,
                                           ) # FOR VIDEO REWARD, set human=False for metaworld demo
         elif env_type == "mom":
@@ -792,6 +1234,7 @@ def make_env(env_type, env_id, rank, seed=0):
                                           time=True, 
                                           rank=rank, 
                                           human=True,
+                                          num_demo=num_demo,
                                           demo_cache_path=args.demo_cache,
                                           ) # FOR VIDEO REWARD, set human=False for metaworld demo
         # elif env_type == "sequential":
@@ -805,7 +1248,7 @@ def make_env(env_type, env_id, rank, seed=0):
                 time=True,
                 rank=rank,
                 human=True,
-                num_demo=28,
+                num_demo=num_demo,
                 temperature=1.0,
                 demo_cache_path=args.demo_cache,
             )
@@ -817,7 +1260,7 @@ def make_env(env_type, env_id, rank, seed=0):
                 time=True,
                 rank=rank,
                 human=True,
-                num_demo=28,
+                num_demo=num_demo,
                 normalize_demos=False,
                 normalize_proto=True,
                 normalize_rollout=True, # normalize all for cosine similarity to centroid
@@ -831,7 +1274,7 @@ def make_env(env_type, env_id, rank, seed=0):
                 time=True,
                 rank=rank,
                 human=True,
-                num_demo=28,
+                num_demo=num_demo,
                 metric="cosine",
                 demo_cache_path=args.demo_cache,
             )
@@ -843,7 +1286,7 @@ def make_env(env_type, env_id, rank, seed=0):
                 time=True,
                 rank=rank,
                 human=True,
-                num_demo=28,
+                num_demo=num_demo,
                 total_training_episodes=7813,  # ≈ 1M env steps / 128 steps per episode
                 demo_cache_path=args.demo_cache,
             )
@@ -859,9 +1302,40 @@ def make_env(env_type, env_id, rank, seed=0):
                 demo_index=args.demo_index,
                 demo_cache_path=args.demo_cache,
             )
+        
+        elif env_type == "max_decay":
+            env = MetaworldSparseMultiMaxWithDecayingCredit(
+                env_id=env_id,
+                video_path="./gifs/custom/drawer-open-human",
+                time=True,
+                rank=rank,
+                human=True,
+                num_demo=num_demo,
+                demo_cache_path=args.demo_cache,
+                checkpoint_every_env_steps=32,
+                decay_lambda=1.0,
+            )
+        
+        elif env_type == "max_true_decay":
+            env = MetaworldSparseMultiMaxWithTrueDecayingCredit(
+                env_id=env_id,
+                video_path="./gifs/custom/drawer-open-human",
+                time=True,
+                rank=rank,
+                human=True,
+                num_demo=num_demo,
+                demo_cache_path=args.demo_cache,
+                chunk_len=32,
+                decay_lambda=0.15,
+                normalize_weights=True,
+            )
 
         else:
             env = MetaworldDense(env_id=env_id, time=True, rank=rank)
+
+        if use_init_state:
+            assert args.init_states is not None, "You set --use-init-states but did not pass --init-states PATH"
+            env = InitialStateResetWrapper(env, init_states_path=args.init_states, seed=rank)
         env = Monitor(env, os.path.join(log_dir, str(rank)))
         # env.seed(seed + rank)
         return env
@@ -890,14 +1364,14 @@ def main():
     log_dir = f"metaworld/{args.env_id}_{args.env_type}{args.dir_add}"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    envs = SubprocVecEnv([make_env(args.env_type, args.env_id, i) for i in range(args.n_envs)])
+    envs = SubprocVecEnv([make_env(env_type=args.env_type, env_id=args.env_id, rank=i, num_demo=args.num_demo, use_init_state=args.use_init_states) for i in range(args.n_envs)])
 
     if not args.pretrained:
         model = PPO("MlpPolicy", envs, verbose=1, tensorboard_log=log_dir, n_steps=args.n_steps, batch_size=args.n_steps*args.n_envs, n_epochs=1, ent_coef=0.5)
     else:
         model = PPO.load(args.pretrained, env=envs, tensorboard_log=log_dir)
 
-    eval_env = SubprocVecEnv([make_env("dense_original", args.env_id, i) for i in range(10, 10+args.n_envs)])#KitchenEnvDenseOriginalReward(time=True)
+    eval_env = SubprocVecEnv([make_env(env_type="dense_original", env_id=args.env_id, rank=i, num_demo=args.num_demo, use_init_state=args.use_init_states) for i in range(10, 10+args.n_envs)])#KitchenEnvDenseOriginalReward(time=True)
     # Use deterministic actions for evaluation
     eval_callback = EvalCallback(eval_env, best_model_save_path=log_dir,
                                  log_path=log_dir, eval_freq=500,

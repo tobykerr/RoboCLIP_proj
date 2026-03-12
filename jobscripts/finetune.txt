@@ -3,9 +3,9 @@
 
 #SBATCH -p gpuA             # use A100 80GB GPU
 #SBATCH -G 1                # use 1 GPU
-#SBATCH -t 10             # time limit of 1 day
+#SBATCH -t 3-0              # time limit of 1 day
 
-#SBATCH -n 1               # number of CPU host cores to use (1-12)
+#SBATCH -n 10               # number of CPU host cores to use (1-12)
 #SBATCH --mem=64G          # set RAM needed (otherwise will be very low, since using only 1 CPU)
 
 module purge
@@ -19,8 +19,4 @@ export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 export MUJOCO_GL=egl
 
-python metaworld_multidemos.py \
-  --demo-dir ./gifs/custom/drawer-open-robot \
-  --num-demo 1 \
-  --demo-cache ./gifs/custom/drawer-open-human-robot/demo_embeds.pt \
-  --build-demo-cache
+python metaworld_envs.py --env-type dense_original --env-id drawer-open-v2-goal-hidden --pretrained metaworld/drawer-open-v2-goal-hidden_max_max28/best_model.zip --dir-add finetune_max28 

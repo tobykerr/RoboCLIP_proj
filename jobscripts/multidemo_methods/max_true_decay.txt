@@ -1,11 +1,11 @@
 #!/bin/bash -login
-#SBATCH -o slurm_logs/%x.o%j
+#SBATCH -o slurm_logs/reach_max_%x.o%j
 
 #SBATCH -p gpuA             # use A100 80GB GPU
 #SBATCH -G 1                # use 1 GPU
-#SBATCH -t 10             # time limit of 1 day
+#SBATCH -t 3-0              # time limit of 1 day
 
-#SBATCH -n 1               # number of CPU host cores to use (1-12)
+#SBATCH -n 10               # number of CPU host cores to use (1-12)
 #SBATCH --mem=64G          # set RAM needed (otherwise will be very low, since using only 1 CPU)
 
 module purge
@@ -20,7 +20,12 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 export MUJOCO_GL=egl
 
 python metaworld_multidemos.py \
-  --demo-dir ./gifs/custom/drawer-open-robot \
-  --num-demo 1 \
-  --demo-cache ./gifs/custom/drawer-open-human-robot/demo_embeds.pt \
-  --build-demo-cache
+  --env-type max_true_decay \
+  --env-id drawer-open-v2-goal-hidden \
+  --total-time-steps 1000000 \
+  --n-envs 8 \
+  --n-steps 128 \
+  --demo-dir ./gifs/custom/drawer-open-human \
+  --num-demo 28 \
+  --demo-cache ./gifs/custom/drawer-open-human/demo_embeds.pt \
+  --dir-add _max_decaying_credit

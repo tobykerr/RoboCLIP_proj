@@ -25,9 +25,7 @@ python metaworld_multidemos.py \
   --total-time-steps 1000000 \
   --n-envs 8 \
   --n-steps 128 \
-  --demo-dir ./gifs/custom/drawer-open-human-split/grasp \
-  --num-demo 25 \
-  --demo-cache ./gifs/custom/drawer-open-human-split/grasp/demo_embeds.pt \
-  --dir-add _grasp_max25_detinit \
-  --use-init-states \
-  --init-states ./results/subtasks_max25/grasp/init_states_tight_second.pkl
+  --demo-dir ./gifs/custom/drawer-open-human \
+  --num-demo 28 \
+  --demo-cache ./gifs/custom/drawer-open-human/demo_embeds.pt \
+  --dir-add _max28_run2 \

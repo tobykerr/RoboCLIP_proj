@@ -3,7 +3,7 @@
 
 #SBATCH -p gpuA             # use A100 80GB GPU
 #SBATCH -G 1                # use 1 GPU
-#SBATCH -t 5             # time limit of 1 day
+#SBATCH -t 10             # time limit of 1 day
 
 #SBATCH -n 10               # number of CPU host cores to use (1-12)
 #SBATCH --mem=64G          # set RAM needed (otherwise will be very low, since using only 1 CPU)
@@ -20,8 +20,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 export MUJOCO_GL=egl
 
 python tools/run.py \
-  --model metaworld/drawer-open-v2-goal-hidden_max_grasp_max25_detinit/best_model.zip \
+  --model metaworld/drawer-open-v2-goal-hidden_max_max28_run2/best_model.zip \
   --env-id drawer-open-v2-goal-hidden \
   --max-steps 128 \
-  --init-states results/subtasks_max25/grasp/init_states_tight_second.pkl \
-  --outfile results/subtasks_max25/grasp/grasp_from_tightinit_second.gif
+  --outfile results/max28/run2/max28_2m_timesteps.gif
