@@ -47,6 +47,9 @@ from transformers import CLIPProcessor, CLIPModel
 
 from metaworld_envs import MetaworldDense
 
+ZOOM_CAM = [0.25601272583007817,0.44153897762298583,0.4228601813316346]
+ZOOM_CAM_NAME = "corner2"
+
 def build_demo_cache(
     demo_dir: str,
     num_demo: int,
@@ -167,7 +170,8 @@ def get_args():
     parser.add_argument("--demo-index", type=int, default=0,
                         help="0-based demo index for single_demo baseline")
     parser.add_argument("--init-states", type=str, default=None)
-    parser.add_argument("--use-init-states", action="store_true")
+    parser.add_argument("--use-init-states", action="store_true", default=False)
+    parser.add_argument("--use-zoom-cam", action="store_true", default=False)
 
 
     args = parser.parse_args()
@@ -256,14 +260,29 @@ class MetaworldSparseMultiBase(Env):
         return frames
         
     
-    def render(self):
-        frame = self.env.render()
-        # center = 240, 320
-        # h, w = (250, 250)
-        # x = int(center[1] - w/2)
-        # y = int(center[0] - h/2)
-        # frame = frame[y:y+h, x:x+w]
-        return frame
+    # def render(self):
+    #     frame = self.env.render()
+    #     # center = 240, 320
+    #     # h, w = (250, 250)
+    #     # x = int(center[1] - w/2)
+    #     # y = int(center[0] - h/2)
+    #     # frame = frame[y:y+h, x:x+w]
+    #     return frame
+
+    def render(self, mode="rgb_array", **kwargs):
+        if args.use_zoom_cam:
+            base = unwrap_to_base_with_sim(self.env)
+            frame = base.sim.render(
+                width=640,
+                height=480,
+                camera_name=ZOOM_CAM_NAME,
+                depth=False,
+            )
+            if frame.dtype != np.uint8:
+                frame = np.clip(frame, 0, 255).astype(np.uint8)
+            return frame
+
+        return self.env.render(mode=mode, **kwargs)
 
 
     def step(self, action):
@@ -277,8 +296,8 @@ class MetaworldSparseMultiBase(Env):
             obs, env_rew, terminated, truncated, info = out
             done = terminated or truncated
 
-        #self.past_observations.append(self.env.render()) # original, below is more efficient (only keeps every 4th frame since this would happen in preprocess_metaworld anyway)
-        frame = self.env.render()
+        #self.past_observations.append(self.render()) # original, below is more efficient (only keeps every 4th frame since this would happen in preprocess_metaworld anyway)
+        frame = self.render()
         if frame is not None:
             #crop to 250x250 as in preprocess_metaworld
             center = 240, 320
@@ -521,7 +540,7 @@ class MetaworldSparseMultiSequentialFixedBudget(MetaworldSparseMultiBase):
             done = terminated or truncated
 
         #self.past_observations.append(self.env.render()) # original, below is more efficient (only keeps every 4th frame since this would happen in preprocess_metaworld anyway)
-        frame = self.env.render()
+        frame = self.render()
         if frame is not None:
             #crop to 250x250 as in preprocess_metaworld
             center = 240, 320
@@ -902,7 +921,7 @@ class MetaworldSparseMultiMaxWithDecayingCredit(MetaworldSparseMultiBase):
             obs, env_rew, terminated, truncated, info = out
             done = terminated or truncated
 
-        frame = self.env.render()
+        frame = self.render()
         if frame is not None:
             # crop to 250x250 as in preprocess_metaworld
             center = 240, 320
@@ -1049,7 +1068,7 @@ class MetaworldSparseMultiMaxWithTrueDecayingCredit(MetaworldSparseMultiBase):
             done = terminated or truncated
 
         # Capture 1 cropped frame per env step (NO frame skipping for clip reward)
-        frame = self.env.render()
+        frame = self.render()
         if frame is not None:
             frame = self._crop_frame(frame)
             self._clip_frames.append(frame)
@@ -1198,8 +1217,31 @@ class InitialStateResetWrapper(gym.Wrapper):
         else:
             return base_obs
 
+def set_named_camera_pos(env, camera_name, pos, max_depth=30):
+    cur = env
+    for _ in range(max_depth):
+        if hasattr(cur, "sim"):
+            sim = cur.sim
+            cam_id = sim.model.camera_name2id(camera_name)
+            sim.model.cam_pos[cam_id] = np.array(pos, dtype=np.float32)
+            sim.forward()
+            return
+        if hasattr(cur, "env"):
+            cur = cur.env
+        else:
+            break
+    raise AttributeError("Could not find underlying MuJoCo sim to set camera position.")
 
-def make_env(env_type, env_id, rank, num_demo, seed=0, use_init_state=False):
+import imageio
+
+def save_training_env_debug_frame(env_fn, out_path):
+    env = env_fn()
+    obs = env.reset()
+    frame = env.render()
+    imageio.imwrite(out_path, frame)
+    print(f"[Debug] Saved training env frame to {out_path}")
+
+def make_env(env_type, env_id, rank, num_demo, seed=0, use_init_state=False, use_zoom_cam=False):
     """
     Utility function for multiprocessed env.
 
@@ -1333,6 +1375,11 @@ def make_env(env_type, env_id, rank, num_demo, seed=0, use_init_state=False):
         else:
             env = MetaworldDense(env_id=env_id, time=True, rank=rank)
 
+        if use_zoom_cam:
+            set_named_camera_pos(env, ZOOM_CAM_NAME, ZOOM_CAM)
+            if rank == 0:
+                print(f"[Camera] Applied zoom cam {ZOOM_CAM_NAME} at {ZOOM_CAM}")
+
         if use_init_state:
             assert args.init_states is not None, "You set --use-init-states but did not pass --init-states PATH"
             env = InitialStateResetWrapper(env, init_states_path=args.init_states, seed=rank)
@@ -1364,14 +1411,29 @@ def main():
     log_dir = f"metaworld/{args.env_id}_{args.env_type}{args.dir_add}"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    envs = SubprocVecEnv([make_env(env_type=args.env_type, env_id=args.env_id, rank=i, num_demo=args.num_demo, use_init_state=args.use_init_states) for i in range(args.n_envs)])
+    
+    if args.use_zoom_cam:
+        debug_env_fn = make_env(
+            env_type=args.env_type,
+            env_id=args.env_id,
+            rank=999,
+            num_demo=args.num_demo,
+            use_init_state=args.use_init_states,
+            use_zoom_cam=args.use_zoom_cam,
+        )
+        save_training_env_debug_frame(
+            debug_env_fn,
+            os.path.join(log_dir, "training_env_zoomcam_check.png"),
+        )
+
+    envs = SubprocVecEnv([make_env(env_type=args.env_type, env_id=args.env_id, rank=i, num_demo=args.num_demo, use_init_state=args.use_init_states, use_zoom_cam=args.use_zoom_cam) for i in range(args.n_envs)])
 
     if not args.pretrained:
         model = PPO("MlpPolicy", envs, verbose=1, tensorboard_log=log_dir, n_steps=args.n_steps, batch_size=args.n_steps*args.n_envs, n_epochs=1, ent_coef=0.5)
     else:
         model = PPO.load(args.pretrained, env=envs, tensorboard_log=log_dir)
 
-    eval_env = SubprocVecEnv([make_env(env_type="dense_original", env_id=args.env_id, rank=i, num_demo=args.num_demo, use_init_state=args.use_init_states) for i in range(10, 10+args.n_envs)])#KitchenEnvDenseOriginalReward(time=True)
+    eval_env = SubprocVecEnv([make_env(env_type="dense_original", env_id=args.env_id, rank=i, num_demo=args.num_demo, use_init_state=args.use_init_states, use_zoom_cam=args.use_zoom_cam) for i in range(10, 10+args.n_envs)])#KitchenEnvDenseOriginalReward(time=True)
     # Use deterministic actions for evaluation
     eval_callback = EvalCallback(eval_env, best_model_save_path=log_dir,
                                  log_path=log_dir, eval_freq=500,
