@@ -1,5 +1,5 @@
 #!/bin/bash -login
-#SBATCH -o %x.o%j
+#SBATCH -o slurm_logs/%x.o%j
 
 #SBATCH -p serial             # use A100 80GB GPU
 #SBATCH -t 10            # time limit of 1 day
@@ -7,7 +7,7 @@
 conda activate roboclip
 
 python tools/plot_reward_curve.py \
-  --run-dir metaworld/drawer-open-v2-goal-hidden_max_max28_run2 \
-  --out-dir results/max28/run2/plots \
+  --run-dir metaworld/drawer-open-v2-goal-hidden_max_subtask_grasp_zoomcam \
+  --out-dir results/subtasks_max25/grasp_zoomcam/plots \
   --n-envs 8 \
   --combined

@@ -1,9 +1,9 @@
 #!/bin/bash -login
-#SBATCH -o slurm_logs/reach_max_%x.o%j
+#SBATCH -o slurm_logs/grasp_zoomcam_real_%x.o%j
 
 #SBATCH -p gpuA             # use A100 80GB GPU
 #SBATCH -G 1                # use 1 GPU
-#SBATCH -t 3-0              # time limit of 1 day
+#SBATCH -t 1-0              # time limit of 1 day
 
 #SBATCH -n 10               # number of CPU host cores to use (1-12)
 #SBATCH --mem=64G          # set RAM needed (otherwise will be very low, since using only 1 CPU)
@@ -25,7 +25,10 @@ python metaworld_multidemos.py \
   --total-time-steps 1000000 \
   --n-envs 8 \
   --n-steps 128 \
-  --demo-dir ./gifs/custom/drawer-open-human \
-  --num-demo 28 \
-  --demo-cache ./gifs/custom/drawer-open-human/demo_embeds.pt \
-  --dir-add _max28_run2 \
+  --demo-dir ./gifs/custom/drawer-open-human-split/grasp \
+  --num-demo 25 \
+  --demo-cache ./gifs/custom/drawer-open-human-split/grasp/demo_embeds.pt \
+  --use-init-states \
+  --init-states ./results/subtasks_max25/grasp/init_states_tight.pkl \
+  --dir-add _subtask_grasp_zoomcam \
+  --use-zoom-cam
